@@ -7,6 +7,7 @@ The course covers various aspects of the design and programming of the protocols
 
 ### Protocols
 1. [WiFi Protocol](https://github.com/AlessandroFerrante/Embedded-Systems/blob/main/WiFi%20Protocol/)
+2. [ESP-NOW Protocol]((https://github.com/AlessandroFerrante/Embedded-Systems/blob/main/ESP-NOW%20Protocol/))
 
 Each protocol folder contains the source code implementation of the protocols with related examples.
 
