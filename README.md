@@ -9,11 +9,12 @@ The course covers various aspects of the design and programming of the protocols
 
 ### Protocols and examples
 
-1. [WiFi Protocol](https://github.com/AlessandroFerrante/Embedded-Systems/blob/main/WiFi%20Protocol/)
-2. [ESP-NOW Protocol](https://github.com/AlessandroFerrante/Embedded-Systems/blob/main/ESP-NOW%20Protocol/)
-3. [BLE Protocol](https://github.com/AlessandroFerrante/Embedded-Systems/blob/main/BLE%20Protocol/)
-4. [SemaphoreBLE (BLE Protocol example)](https://github.com/AlessandroFerrante/Embedded-Systems/blob/main/BLE%20Protocol/)
-
+1. [WiFi Protocol](https://github.com/AlessandroFerrante/IoT/blob/main/WiFi%20Protocol/)
+2. [ESP-NOW Protocol](https://github.com/AlessandroFerrante/Iot/blob/main/ESP-NOW%20Protocol/)
+3. [BLE Protocol](https://github.com/AlessandroFerrante/Iot/blob/main/BLE%20Protocol/)
+4. [SemaphoreBLE (BLE Protocol example)](https://github.com/AlessandroFerrante/Iot/blob/main/SemaphoreBLE/)
+5. [ZigBee Protocol](https://github.com/AlessandroFerrante/Iot/blob/main/ZigBee%20Protocol/)
+   
 Each protocol folder contains the source code implementation of the protocols with related examples.
 
 ## Requirements
