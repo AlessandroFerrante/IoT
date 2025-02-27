@@ -15,6 +15,7 @@ The course covers various aspects of the design and programming of the protocols
 4. [SemaphoreBLE (BLE Protocol example)](https://github.com/AlessandroFerrante/Iot/blob/main/SemaphoreBLE/)
 5. [ZigBee Protocol ](https://github.com/AlessandroFerrante/Iot/blob/main/ZigBee%20Protocol/)
 6. [Lighting System BLE &amp; Zigbee](https://github.com/AlessandroFerrante/Iot/blob/main/Lighting%20System%20BLE%20&%20Zigbee/)
+7. [LoRa Protocol](https://github.com/AlessandroFerrante/Iot/blob/main/LoRa%20Protocol/)
 
 Each protocol folder contains the source code implementation of the protocols with related examples.
 
