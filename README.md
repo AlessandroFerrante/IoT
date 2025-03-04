@@ -17,6 +17,7 @@ The course covers various aspects of the design and programming of the protocols
 6. [Lighting System BLE &amp; Zigbee](https://github.com/AlessandroFerrante/Iot/blob/main/Lighting%20System%20BLE%20&%20Zigbee/)
 7. [LoRa Protocol](https://github.com/AlessandroFerrante/Iot/blob/main/LoRa%20Protocol/)
 8. [HTTP Protocol](https://github.com/AlessandroFerrante/Iot/blob/main/HTTP%20Protocol/)
+9. [MQTT Protocol](https://github.com/AlessandroFerrante/Iot/blob/main/MQTT%20Protocol/)
 
 Each protocol folder contains the source code implementation of the protocols with related examples.
 
