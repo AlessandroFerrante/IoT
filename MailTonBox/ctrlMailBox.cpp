@@ -2,7 +2,7 @@
  * @file ctrlMailBox.cpp
  * @author Alessandro Ferrante (github@alessandroferrante)
  * @brief 
- * @version 2.5.0
+ * @version 1.5.0
  * @date 2025-03-06
  * 
  * @copyright Copyright (c) 2025
