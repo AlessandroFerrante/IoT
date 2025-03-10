@@ -2,7 +2,7 @@
  * @file ctrlMailBox.cpp
  * @author Alessandro Ferrante (github@alessandroferrante)
  * @brief 
- * @version 2.5
+ * @version 2.5.2
  * @date 2025-03-06
  * 
  * @copyright Copyright (c) 2025
@@ -45,8 +45,8 @@ int distance_update = 15;
 // Rotary encoder
 bool mailbox_open = false;
 int rotationCount = 5; 
-const int CLOSE_THRESHOLD = 5;
-const int OPEN_THRESHOLD = -5;
+const int CLOSE_THRESHOLD = 15;
+const int OPEN_THRESHOLD = -15;
 bool wait_rotary = false;
 // servo
 bool wait_servo = false;
@@ -54,10 +54,10 @@ bool servo_open = false;
 
 void IRAM_ATTR rotaryChanged() {
     wait_rotary = true;
-    if (digitalRead(ROTARY_CLK) == digitalRead(ROTARY_DT) && rotationCount < (CLOSE_THRESHOLD)) {
-        rotationCount++;
-    } else if(rotationCount > OPEN_THRESHOLD) {
-        rotationCount--;
+    if (digitalRead(ROTARY_CLK) == digitalRead(ROTARY_DT)) {
+        mailbox_open = false;
+    } else {
+        mailbox_open = true;
     }
     wait_rotary = false;
 }
@@ -310,19 +310,18 @@ void loop() {
         loraFlagError = false;
         display->display();
     }
-
     
-    if (rotationCount >= CLOSE_THRESHOLD) {
+    /*if (rotationCount >= CLOSE_THRESHOLD-5) {
         writeServo(90);
         mailbox_open = false;
     } 
-    else if (rotationCount <= OPEN_THRESHOLD) {
+    else if (rotationCount <= OPEN_THRESHOLD+5) {
         writeServo(-30);
         mailbox_open = true;
-    }
+    }*/
     
-    delay(1000);
-    /*
+//    delay(1000);
+    
     if (!mailbox_open){
         writeServo(90);
         delay(10);
@@ -330,7 +329,7 @@ void loop() {
         writeServo(-30); 
         delay(10);
     }
-    */
+
 
     display->clearDisplay();
     display->setCursor(0,0);
