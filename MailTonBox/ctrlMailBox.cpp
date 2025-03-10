@@ -2,7 +2,7 @@
  * @file ctrlMailBox.cpp
  * @author Alessandro Ferrante (github@alessandroferrante)
  * @brief 
- * @version 2.2
+ * @version 2.5
  * @date 2025-03-06
  * 
  * @copyright Copyright (c) 2025
@@ -44,29 +44,20 @@ int distance_update = 15;
 
 // Rotary encoder
 bool mailbox_open = false;
-int rotationCount = 6; 
-const int CLOSE_THRESHOLD = 2;
-const int OPEN_THRESHOLD = -2;
+int rotationCount = 5; 
+const int CLOSE_THRESHOLD = 5;
+const int OPEN_THRESHOLD = -5;
 bool wait_rotary = false;
-// servo 
+// servo
 bool wait_servo = false;
+bool servo_open = false;
 
 void IRAM_ATTR rotaryChanged() {
-    if (digitalRead(ROTARY_CLK) == digitalRead(ROTARY_DT) && rotationCount < (CLOSE_THRESHOLD+10)) {
-        wait_rotary = true;
+    wait_rotary = true;
+    if (digitalRead(ROTARY_CLK) == digitalRead(ROTARY_DT) && rotationCount < (CLOSE_THRESHOLD)) {
         rotationCount++;
-    } else if(rotationCount > OPEN_THRESHOLD-10) {
-        wait_rotary = true;
+    } else if(rotationCount > OPEN_THRESHOLD) {
         rotationCount--;
-    }
-
-
-    // TODO spostarlo nel loop
-    if (rotationCount >= CLOSE_THRESHOLD) {
-        mailbox_open = false;
-    } 
-    else if (rotationCount <= OPEN_THRESHOLD) {
-        mailbox_open = true;
     }
     wait_rotary = false;
 }
@@ -81,6 +72,9 @@ void writeServo(int angle) {
     delayMicroseconds(pulseWidth);  // Impulso di larghezza variabile
     digitalWrite(SERVO_PIN, LOW);
     delay(20 - pulseWidth / 1000);  // Resto del ciclo PWM (20 ms)
+
+    if(angle == 90) servo_open = false;
+    else servo_open = true;
     wait_servo = false;
 }
 
@@ -132,7 +126,10 @@ void onLoRaReceive(int packetSize) {
     loraFlagReceived = true;
 }
 
-void onLoRaSend(){
+void onLoRaSend() {
+}
+
+void sendMessageLoRa(){
     lora_priority = true;
     digitalWrite(LED_GREEN, HIGH);
     last_lora_msg = lora_msg;
@@ -163,6 +160,8 @@ void onLoRaSend(){
 }
 
 void onBtn1Released(uint8_t pinBtn){
+    lora_msg = "AAAAAAAAAAAAAAAAAAAAAAAA";
+    sendMessageLoRa();
 }
 
 int measuresDistance() {
@@ -229,62 +228,80 @@ void setup() {
 
 void loop() {
     buttons->update();
-
+    
+    // | ******************** Restart LoRa *************************
+    /*if(!wait_rotary && !wait_servo && !servo_open && !mailbox_open){
+        lora_priority = true;
+        if(!lora->isConnected()){
+            digitalWrite(LED_RED, HIGH);
+            display->printf("LoRa Error");
+            
+            // !!!!! Implies the reset esp32
+            if (IoTBoard::init_lora()) {
+                lora->onReceive(onLoRaReceive);
+                lora->onTxDone(onLoRaSend);
+                lora->receive();
+                display->println("LoRa enabled");
+            } else {
+                digitalWrite(LED_RED, HIGH);
+                display->printf("LoRa Error");
+            }
+            
+        } else if(lora->isConnected()){
+            digitalWrite(LED_RED, LOW);
+        }
+        displayNeedUpdate = true;
+        lora_priority = false;
+    }*/
+    
+    delay(1);
+    
     if(displayNeedUpdate){
         displayNeedUpdate = false;
         display->display();
     }
     
-    if (!lora_priority){
+    if (!lora_priority && !wait_rotary && !wait_servo){
         distance = measuresAverageDistance();
-        readings_made++;
-    
-        
+        readings_made++;       
         if (readings_made >= distance_update) {
             initial_distance = measuresAverageDistance();
             readings_made = 0;
         }
     } 
     
-    if (!mailbox_open){
-        writeServo(90);
-        delay(10);
-        if (!wait_rotary && !mail_detected && abs(distance - initial_distance) > theshold){        
-            display->clearDisplay();
-            display->setCursor(0,0);
-            display->println("Letter detected");
-            display->display();
-            lora_msg = "New Mail";
-            onLoRaSend();
-            mail_detected = true;
-            delay(1000);
-        } else if (mail_detected && abs(distance - initial_distance) <= theshold) {
-            mail_detected = false; // reset when the letter is removed
-        }
-    }
+    if (!lora_priority && !mailbox_open && !wait_servo && !wait_rotary && !mail_detected && abs(distance - initial_distance) > theshold){        
+        display->clearDisplay();
+        display->setCursor(0,0);
+        display->println("Letter detected");
+        display->display();
+        lora_msg = "New Mail";
+        sendMessageLoRa();
+        mail_detected = true;
+        delay(1000);
+    } else if (mail_detected && abs(distance - initial_distance) <= theshold) {
+        mail_detected = false; // reset when the letter is removed
+    }  
+
     static bool message_sent = false;
-    if (mailbox_open) {
-        writeServo(-30); 
+    
+    if (!lora_priority && mailbox_open && servo_open && !wait_rotary && !wait_servo && !mail_detected && !message_sent) {
+        // Send the message only if the mailbox is open and the mail is taken (or the distance is the initial one)
+        lora_msg = "Mailbox Opened";
+        sendMessageLoRa();
         delay(100);
-        if (!mail_detected && !message_sent) {
-            // Send the message only if the mailbox is open and the mail is taken (or the distance is the initial one)
-            lora_msg = "Mailbox Opened";
-            onLoRaSend();
-            delay(100);
-            message_sent = true;
-        }
-        if (mail_detected && abs(distance - initial_distance) <= theshold) {
-            mail_detected = false; // reset when the letter is removed
-        }
-        
-    } else {
-        message_sent = false; // reset when the mailbox is closed
+        message_sent = true;
+    }else if (mail_detected && abs(distance - initial_distance) <= theshold) {
+        mail_detected = false; // reset when the letter is removed
     }
+    if(!mailbox_open)
+        message_sent = false; // reset when the mailbox is closed
 
     if(loraFlagReceived){
         lora_msg = last_lora_msg;
+        delay(10);
+        sendMessageLoRa();
         delay(100);
-        onLoRaSend();
         loraFlagReceived = false;
         display->display();
     }
@@ -293,6 +310,27 @@ void loop() {
         loraFlagError = false;
         display->display();
     }
+
+    
+    if (rotationCount >= CLOSE_THRESHOLD) {
+        writeServo(90);
+        mailbox_open = false;
+    } 
+    else if (rotationCount <= OPEN_THRESHOLD) {
+        writeServo(-30);
+        mailbox_open = true;
+    }
+    
+    delay(1000);
+    /*
+    if (!mailbox_open){
+        writeServo(90);
+        delay(10);
+    }else {
+        writeServo(-30); 
+        delay(10);
+    }
+    */
 
     display->clearDisplay();
     display->setCursor(0,0);
