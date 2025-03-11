@@ -2,7 +2,7 @@
  * @file ctrlMailBox.cpp
  * @author Alessandro Ferrante (github@alessandroferrante)
  * @brief 
- * @version 2.5.2
+ * @version 2.6
  * @date 2025-03-06
  * 
  * @copyright Copyright (c) 2025
@@ -276,7 +276,9 @@ void loop() {
         display->println("Letter detected");
         display->display();
         lora_msg = "New Mail";
+        noInterrupts();
         sendMessageLoRa();
+        interrupts();
         mail_detected = true;
         delay(1000);
     } else if (mail_detected && abs(distance - initial_distance) <= theshold) {
@@ -288,7 +290,9 @@ void loop() {
     if (!lora_priority && mailbox_open && servo_open && !wait_rotary && !wait_servo && !mail_detected && !message_sent) {
         // Send the message only if the mailbox is open and the mail is taken (or the distance is the initial one)
         lora_msg = "Mailbox Opened";
+        noInterrupts();
         sendMessageLoRa();
+        interrupts();
         delay(100);
         message_sent = true;
     }else if (mail_detected && abs(distance - initial_distance) <= theshold) {
@@ -300,7 +304,9 @@ void loop() {
     if(loraFlagReceived){
         lora_msg = last_lora_msg;
         delay(10);
+        noInterrupts();
         sendMessageLoRa();
+        interrupts();
         delay(100);
         loraFlagReceived = false;
         display->display();
