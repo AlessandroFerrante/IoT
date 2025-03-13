@@ -2,7 +2,7 @@
  * @file mailTon.cpp
  * @author Alessandro Ferrante (github@alessandroferrante)
  * @brief 
- * @version 2.4.0
+ * @version 3.0
  * @date 2025-03-05
  * 
  * @copyright Copyright (c) 2025
@@ -19,8 +19,33 @@
 #include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include <UniversalTelegramBot.h>
- 
-// server object port 80 
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+//#include <DHT_U.h>
+#include <EloquentTinyML.h>
+#include "model.h"  // Il modello AI
+
+#define DHTPIN  D1    // Pin #13 dell ESP32
+#define DHTTYPE DHT11 // DHT 11
+DHT dht(DHTPIN, DHTTYPE);
+float temperature, humidity;
+
+#define NUMBER_OF_INPUTS 2  // Cambia in base al numero di feature usate
+#define NUMBER_OF_OUTPUTS 1 // Output della regressione
+#define TENSOR_ARENA_SIZE 2*1024  // Dimensione della memoria per TensorFlow Lite
+
+// Inizializza l'oggetto TinyML
+Eloquent::TinyML::TfLite<NUMBER_OF_INPUTS, NUMBER_OF_OUTPUTS, TENSOR_ARENA_SIZE> ml;
+
+// MinMaxScaler: valori usati in Python
+#define INPUT_MIN_1 10.0  // Minimo della prima feature
+#define INPUT_MAX_1 50.0  // Massimo della prima feature
+#define INPUT_MIN_2 30.0  // Minimo della seconda feature
+#define INPUT_MAX_2 90.0  // Massimo della seconda feature
+#define INPUT_MIN_3 400.0 // Minimo della terza feature
+#define INPUT_MAX_3 1500.0 // Massimo della terza feature
+
+//server object port 80 
 AsyncWebServer server(80);
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
@@ -424,10 +449,11 @@ bool newPASSbyBot = false;
 int count = 0;
 int count_sent = 0;
 bool loraFlagReceived = false;
+bool loraFlagError = false;
 uint16_t localAddress = 0x02;     
 uint16_t destination = 0xFF;
 String lora_msg = ""; // payload of packet
-
+bool lora_priority = false;
 // save credentials with Preferences
 bool saveCredentials(const String &newSSID, const String &newPassword) {
     Preferences preferences;
@@ -478,7 +504,6 @@ void handleRoot(AsyncWebServerRequest *request) {
 
 // Callback To manage the form
 void handleSave(AsyncWebServerRequest *request) {
-    digitalWrite(LED_RED, LOW);
 
     // verify and read the parameters sent
     if(request->hasParam("ssid", true) && request->hasParam("password", true)) {
@@ -500,7 +525,7 @@ void handleSave(AsyncWebServerRequest *request) {
         delay(2000);
         configureWiFi(WIFI_AP_STA);
     } else {
-        request->send(400, "text/html", "<h2>Errore nella ricezione dei dati</h2>");
+        request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
     }
 }
 
@@ -669,18 +694,19 @@ void handlerSendMessage() {
     display->setCursor(0,0);
     
     if(bot_active){
-        if (lora_msg  == "Mailbox Opened") {
+        if (lora_msg == "Mailbox Opened") {
             bot.sendMessage(chat_id, "Mailbox Opened, someone is already withdrawing the mail 📭");
-            display->println("Send to bot: mail in the mailbox!");
+            display->println("Send to bot: Mailbox Opened");
             display->display();
         }else if (lora_msg == "New Mail"){
             bot.sendMessage(chat_id, "Mail in the mailbox!📬");
             display->println("Send to bot: mail in the mailbox!");
             display->display();
         } else {
-            bot.sendMessage(chat_id, lora_msg);
-            display->println("Lora_msg : " + lora_msg);
-            display->display();
+            bot.sendMessage(chat_id, "Error");
+            display->println("Send to bot: Error!");
+            loraFlagError = true;
+            digitalWrite(LED_RED, HIGH);
         }
     }else{
         display->println("Bot not activated, not sent notification");
@@ -697,15 +723,8 @@ void SendRebootMessageBot(){
     handleNewMessages(rebootMsg);
 }
 
-void onLoRaSend() {
-    /*display->clearDisplay();
-    display->setCursor(0,0);
-    display->printf("LoRa Send: %d \n", count_sent);
-    display->display();
-    */
-}
-
 void onLoRaReceive(int packetSize) {
+    lora_priority = true;
     // if there's no packet, return
     if (packetSize == 0)
         return; 
@@ -715,21 +734,28 @@ void onLoRaReceive(int packetSize) {
     uint16_t sender = lora->read();     // sender address
     byte incomingMsgId = lora->read();  // incoming msg ID
     byte incomingLength = lora->read(); // incoming msg length
+    byte receivedChecksum = lora->read(); // read checksum
 
     String incoming = ""; // payload of packet
 
     while (lora->available()){          // can't use readString() in callback, so
         incoming += (char)lora->read(); // add bytes one by one
     }
-
-    if (incomingLength != incoming.length()){
-        display->clearDisplay();
-        display->setCursor(0,0);
-        display->println("error: message length does not match length");
-        display->display();
-        return;
+    
+    byte calculatedChecksum = 0;
+    for (int i = 0; i < incoming.length(); i++) {
+        calculatedChecksum ^= incoming[i];
     }
     
+    if (incomingLength != incoming.length() || receivedChecksum != calculatedChecksum){ 
+        display->clearDisplay();
+        display->setCursor(0,0);
+        display->println("error: message length or checksum does not match");
+        loraFlagError = true;
+        digitalWrite(LED_RED, HIGH);
+        return;
+    }
+
     count++;
     display->clearDisplay();
     display->setCursor(0,0);
@@ -741,29 +767,145 @@ void onLoRaReceive(int packetSize) {
     display->printf("Message: %s\n", incoming.c_str());
     display->printf("RSSI: %d\n", lora->packetRssi());
     display->printf("Snr: %02f\n", lora->packetSnr());
+    
+    lora->receive();
 
-    lora_msg = incoming.c_str();
-    loraFlagReceived = true;
+    if(!loraFlagError){    
+        lora_msg = incoming.c_str();
+        loraFlagReceived = true;
+    }
+    lora_priority = false;
+}
+
+void onLoRaSend(){
+    
+}
+
+void sendMessageLoRa(){
+    digitalWrite(LED_RED, HIGH);
+    String lora_error = "NOTACK";
+    lora->beginPacket();
+
+    lora->write(destination);              // add destination address
+    lora->write(localAddress);             // add sender address
+    lora->write(count_sent);               // add message ID
+    lora->write(lora_error.length());        // add payload length
+    
+    byte checksum = 0;
+    for (int i = 0; i < lora_error.length(); i++) {
+        checksum ^= lora_error[i];
+    }
+    lora->write(checksum); // add checksum
+    lora->print(lora_msg); // add payload
+
+    lora->endPacket(true); // true = async / non-blocking mode
+    count_sent++;
+    lora->receive();
+
+    delay(100);
+    loraFlagError = false;
+
+    digitalWrite(LED_RED, LOW);
+}
+
+void DetectionAndPrediction(){
+    display->clearDisplay();
+    display->setCursor(0,16);
+    float newT = dht.readTemperature();
+
+    if (isnan(newT)) {
+        display->println(F("I can't read the DHT sensor!"));
+        display->display();
+    }
+    else {
+      temperature = newT;
+      display->print("Temperatura = ");
+      display->println(temperature);
+      display->display();
+    }
+
+    float newH = dht.readHumidity();
+
+    if (isnan(newH)) {
+      display->println(F("I can't read the DHT sensor!"));
+      display->display();
+    }
+    else {
+      humidity = newH;
+      display->print("Humidity = ");
+      display->println(humidity);
+      display->display();
+
+    }
+
+    // ------------------------------------------------------------
+
+    float raw_input[NUMBER_OF_INPUTS] = {temperature, humidity}; 
+
+    // Normalizzazione MinMaxScaler
+    float input[NUMBER_OF_INPUTS];
+    input[0] = (raw_input[0] - INPUT_MIN_1) / (INPUT_MAX_1 - INPUT_MIN_1);
+    input[1] = (raw_input[1] - INPUT_MIN_2) / (INPUT_MAX_2 - INPUT_MIN_2);
+    // input[2] = (raw_input[2] - INPUT_MIN_3) / (INPUT_MAX_3 - INPUT_MIN_3);
+
+    // Inferenza
+    float y_pred[NUMBER_OF_OUTPUTS];
+    ml.predict(input, y_pred);
+
+    // Decodifica il valore predetto di PPM (se è stato scalato tra 0-1)
+    float ppm_value = y_pred[0] * (INPUT_MAX_3 - INPUT_MIN_3) + INPUT_MIN_3;
+
+    // Decodifica la classe di temperatura/umidità (prendi l'indice con il valore massimo)
+    int temp_humidity_class = 0;
+    for (int i = 1; i < 3; i++) {
+        if (y_pred[i] > y_pred[temp_humidity_class]) {
+            temp_humidity_class = i;
+        }
+    }
+
+    // Decodifica la classe PPM
+    int ppm_class = 3; // Indice iniziale della classe PPM
+    for (int i = 3; i < 5; i++) {
+        if (y_pred[i] > y_pred[ppm_class]) {
+            ppm_class = i;
+        }
+    }
+
+    // Stampa i risultati
+    Serial.print("PPM Predetto: ");
+    Serial.println(ppm_value);
+    Serial.print("Classe Temp/Humidity: ");
+    Serial.println(temp_humidity_class);
+    Serial.print("Classe PPM: ");
+    Serial.println(ppm_class - 3);  // Normalizza l'indice della classe PPM
+    display->print("PPM Predetto: ");
+    display->println(ppm_value);
+    display->print("Classe Temp/Humidity: ");
+    display->println(temp_humidity_class);
+    display->print("Classe PPM: ");
+    display->println(ppm_class - 3);  // Normalizza l'indice della classe PPM
+    display->display();
 }
 
 void setup() {
     IoTBoard::init_serial();
     IoTBoard::init_leds();
     IoTBoard::init_display();
-    display->println("Display enabled");
+    display->println(F("Display enabled"));
     display->display();
 
     IoTBoard::init_spi();
-    display->println("SPI (HSPI) enabled");
+    display->println(F("SPI (HSPI) enabled"));
     display->display();
 
     if (IoTBoard::init_lora()) {
         lora->onReceive(onLoRaReceive);
         lora->onTxDone(onLoRaSend);
         lora->receive();
-        display->println("LoRa enabled");
+        display->println(F("LoRa enabled"));
     } else {
-        display->printf("LoRa Error");
+        digitalWrite(LED_RED, HIGH);
+        display->printf(F("LoRa Error"));
     }
     display->display();
     
@@ -771,28 +913,24 @@ void setup() {
 
     pinMode(LED_RED, OUTPUT);
     pinMode(LED_GREEN, OUTPUT);
-    pinMode(LED_BLUE, OUTPUT);
 
-    digitalWrite(LED_BLUE, HIGH);
-    digitalWrite(LED_RED, HIGH);
-    digitalWrite(LED_GREEN, HIGH);
-    
     net_ssl.setInsecure(); 
     
     // Prova a caricare le credenziali
     if(loadCredentials()) {
+        digitalWrite(LED_GREEN, HIGH);
+
         // Se le credenziali sono state caricate, prova a connetterti in modalità Station
         display->clearDisplay();
         display->setCursor(0, 0);
-        display->println("Tentativo di connessione alla rete Wi-Fi salvata...");
+        display->println(F("Attempt to connect to the Wi-Fi saved network ..."));
         display->display();   
         configureWiFi(WIFI_AP_STA);
- 
     } else {
         // Avvia in modalità AP per permettere la configurazione iniziale
         display->clearDisplay();
         display->setCursor(0, 0);
-        display->println("AP mode, configure wifi!");
+        display->println(F("AP mode, configure wifi!"));
         display->display();   
         configureWiFi(WIFI_AP);
     }
@@ -803,28 +941,41 @@ void setup() {
         // send message passing the /reboot command
         SendRebootMessageBot();
     }
+
+    dht.begin();
+
+    if (!ml.begin(model_data)) {
+        Serial.println("Errore nel caricamento del modello!");
+        while (true);
+    }
+
 }
 
 void loop() {
     // WiFi configuration
     dnsServer.processNextRequest();
     if (firstConnection && WiFi.status() != WL_CONNECTED && WiFi.getMode() == WIFI_AP_STA) {
+        digitalWrite(LED_RED, HIGH);
+        digitalWrite(LED_GREEN, LOW);
+
         WiFi.begin(ssid, password);
         delay(1000);
         display->clearDisplay();
         display->setCursor(0,0);
-        display->println("Connecting to WiFi...");
+        display->println(F("Connecting to WiFi..."));
         display->display();
         connected = false;
         bot_active = false;
     }
 
     if (WiFi.status() == WL_CONNECTED && connected == false) {
+        digitalWrite(LED_RED, LOW);
+        digitalWrite(LED_GREEN, HIGH);
+
         display->clearDisplay();
         display->setCursor(0,0);
-        display->println("Connected to WiFi");
+        display->println(F("Connected to WiFi"));
         display->println("SSID: " + ssid);
-        //!display->println("IP Address: " + WiFi.localIP());
         display->display();
         connected = true;
         
@@ -835,23 +986,49 @@ void loop() {
         }
     }
 
-    // download messages received every 10000ms
-    if (connected && millis() > Bot_lasttime + Bot_mtbs) {
-        int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
-        while (numNewMessages) {
-            for (int i = 0; i < numNewMessages; i++) {
-                handleNewMessages(bot.messages[i]);
+    if (!lora_priority){
+        // download messages received every (Bot_lasttime + Bot_mtbs)ms
+        if (connected && millis() > Bot_lasttime + Bot_mtbs) {
+            int numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+            while (numNewMessages) {
+                for (int i = 0; i < numNewMessages; i++) {
+                    handleNewMessages(bot.messages[i]);
+                }
+                numNewMessages = bot.getUpdates(bot.last_message_received + 1);
             }
-            numNewMessages = bot.getUpdates(bot.last_message_received + 1);
+            Bot_lasttime = millis();
         }
-        Bot_lasttime = millis();
+    } 
+
+    if (loraFlagError){
+        loraFlagReceived = false;
+        display->display();
+        sendMessageLoRa();
+        delay(100);
+        digitalWrite(LED_RED, LOW);
     }
 
     if(loraFlagReceived){
         loraFlagReceived = false;
         display->display();
-        //delay(100);
         handlerSendMessage();
+        delay(100);
+    }  
+
+
+    static unsigned long lastDetectionTime = 0;
+    unsigned long currentMillis = millis();
+
+    // Call DetectionAndPrediction() immediately after power on
+    if (lastDetectionTime == 0) {
+        DetectionAndPrediction();
+        lastDetectionTime = currentMillis;
     }
-    delay(500);
+
+    if (currentMillis - lastDetectionTime >= 900000) { // 900000 ms = 15 minutes
+        DetectionAndPrediction();
+        lastDetectionTime = currentMillis;
+    }
+     
+    delay(10);
 }
