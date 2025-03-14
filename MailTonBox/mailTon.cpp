@@ -1,12 +1,29 @@
 /**
  * @file mailTon.cpp
- * @author Alessandro Ferrante (github@alessandroferrante)
- * @brief 
- * @version 3.0
+ * @brief This file contains the implementation of the MailTonBox IoT system.
+ * 
+ * The system is designed to monitor and manage a mailbox using various sensors and communication protocols.
+ * It includes functionalities for Wi-Fi configuration, Telegram bot integration, LoRa communication, 
+ * and AI-based predictions for environmental conditions.
+ * 
+ * Key functionalities:
+ * - Wi-Fi configuration through a web interface or Telegram bot.
+ * - Telegram bot for notifications and remote management.
+ * - LoRa communication for receiving messages from remote sensors (ctrlMailBox).
+ * - AI-based predictions for temperature, humidity, and air quality.
+ * - Web server to serve configuration pages and handle form submissions.
+ * 
+ * The system uses various libraries including Arduino, WiFi, AsyncTCP, ESPAsyncWebServer, DNSServer, Preferences, 
+ * ArduinoJson, WiFiClientSecure, UniversalTelegramBot, Adafruit_Sensor, DHT, and EloquentTinyML.
+ * 
+ * @version 3.1
  * @date 2025-03-05
  * 
+ * @note Ensure to configure the Wi-Fi and Telegram bot credentials before deploying the system.
+ * 
+ * @note The system receives environmental data from another device (ctrlMailBox) located in the mailbox via LoRa communication.
+ * 
  * @copyright Copyright (c) 2025
- *
  */
 
 #include <Arduino.h>
@@ -21,29 +38,40 @@
 #include <UniversalTelegramBot.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
-//#include <DHT_U.h>
 #include <EloquentTinyML.h>
-#include "model.h"  // Il modello AI
+#include "model.h"  // AI model
 
-#define DHTPIN  D1    // Pin #13 dell ESP32
-#define DHTTYPE DHT11 // DHT 11
+#define DHTPIN  D1   
+#define DHTTYPE DHT11 
 DHT dht(DHTPIN, DHTTYPE);
-float temperature, humidity;
 
-#define NUMBER_OF_INPUTS 2  // Cambia in base al numero di feature usate
-#define NUMBER_OF_OUTPUTS 1 // Output della regressione
-#define TENSOR_ARENA_SIZE 2*1024  // Dimensione della memoria per TensorFlow Lite
 
-// Inizializza l'oggetto TinyML
+#define NUMBER_OF_INPUTS 3  // used number of features
+#define NUMBER_OF_OUTPUTS 3 // regression output
+#define TENSOR_ARENA_SIZE 8*1024  // memory size for Tensorflow Lite
+
+// init object tinyml
 Eloquent::TinyML::TfLite<NUMBER_OF_INPUTS, NUMBER_OF_OUTPUTS, TENSOR_ARENA_SIZE> ml;
 
-// MinMaxScaler: valori usati in Python
-#define INPUT_MIN_1 10.0  // Minimo della prima feature
-#define INPUT_MAX_1 50.0  // Massimo della prima feature
-#define INPUT_MIN_2 30.0  // Minimo della seconda feature
-#define INPUT_MAX_2 90.0  // Massimo della seconda feature
-#define INPUT_MIN_3 400.0 // Minimo della terza feature
-#define INPUT_MAX_3 1500.0 // Massimo della terza feature
+// MinMaxscaler
+// minimum and maximum of the first feature
+#define INPUT_MIN_1 -10.0  
+#define INPUT_MAX_1 49.0   
+// minimum and maximum of the second feature
+#define INPUT_MIN_2 0.0  
+#define INPUT_MAX_2 100.0 
+// minimum and maximum of the third feature
+#define INPUT_MIN_3 0.0 
+#define INPUT_MAX_3 1500.0
+
+float temperature, humidity = 0.0;
+float ppm_value = 0.0;
+int temp_humidity_class = 0;
+int ppm_class = 0;
+
+void DetectionAndPrediction();
+String tempHumidityClassToText(int value);
+String ppmClassToText(int value);
 
 //server object port 80 
 AsyncWebServer server(80);
@@ -359,30 +387,30 @@ const char* htmlPage = R"rawliteral(
             <div class="modal-content">
                 <a href="javascript:void(0)" onclick="openModal()">X</a>
                     <h1>About MailTon</h1>
-                    <p>Il dispositivo <b style="color: #0bd43a;">mailTon</b> è il componente principale del sistema IoT per la tua cassetta postale. Segui queste istruzioni per configurarlo correttamente:</p>
+                    <p>The device <b style="color: #0bd43a;">mailTon</b> It is the main component of the IoT system for your mailbox. Follow these instructions to configure it correctly:</p>
                     <ul>
-                        <li><b style="color: #0bd43a;">Connessione WiFi</b>: Assicurati che mailTon sia connesso alla tua rete WiFi.</li>
-                        <li><b style="color: #0bd43a;">Notifiche Telegram</b>: Una volta connesso, mailTon potrà inviare notifiche tramite Telegram.</li>
-                        <li><b style="color: #0bd43a;">Avvio del Bot Telegram</b>: Avvia il bot Telegram utilizzando il comando `/start`. Il bot riceverà e risponderà ai tuoi messaggi, mantenendo una sessione attiva anche in caso di riavvio, grazie al salvataggio del <i>`chat_id`</i> in memoria.</li>
-                        <li><b style="color: #0bd43a;">Cambio Credenziali WiFi</b>: In futuro, potrai cambiare le credenziali WiFi anche tramite il bot Telegram.</li>
+                        <li><b style="color: #0bd43a;">WiFi connection</b>: Make sure that Mailton is connected to your WiFi network.</li>
+                        <li><b style="color: #0bd43a;">Telegram notifications</b>: Once connected, Mailton can send notifications via Telegram.</li>
+                        <li><b style="color: #0bd43a;">Start of Bot Telegram</b>: Start the Bot Telegram using the `/start` command. The bot will receive and respond to your messages, keeping an active session even in the event of restart, thanks to the rescue of the <i> `chat_id` </i> in memory.</li>
+                        <li><b style="color: #0bd43a;">Wifi credential change</b>: In the future, you can also change wifi credentials through the bot telegram.</li>
                     </ul>
             </div>
         </div>
         <div id="savedCredentials" class="modal">
             <div class="modal-content">
                 <a href="javascript:void(0)" onclick="closeModalCredentials()">X</a>
-                <h2 style="color: #0bd43a;">Dati salvati correttamente!</h2>
+                <h2 style="color: #0bd43a;">Data saved correctly!</h2>
             </div>
         </div>
         <div id="ErrorCredentials" class="modal">
             <div class="modal-content">
                 <a href="javascript:void(0)" onclick="closeModalCredentials()">X</a>
-                <h2 style="color: red;">Errore nel salvataggio dei dati</h2>
+                <h2 style="color: red;">Error in saving data</h2>
             </div>
         </div>
     </div>
     <footer class="footer">
-        <p>© 2023 Powered by <a href="https://alessandroferrante.net/">Alessandro Ferrante</a>. All rights reserved.</p>
+        <p>© 2025 Powered by <a href="https://alessandroferrante.net/">Alessandro Ferrante</a>. All rights reserved.</p>
     </footer>
     <script>
         let modalActive = false;
@@ -433,7 +461,7 @@ const char* credentialsFile = "/wifi.json";
 
 // Telegram bot
 WiFiClientSecure net_ssl;
-UniversalTelegramBot bot("telegramToken", net_ssl);
+UniversalTelegramBot bot("7411303563:AAEcRU9EZebULA2VXfuVt-theJ8nRZf2ZpQ", net_ssl);
 int Bot_mtbs = 200;
 long Bot_lasttime;
 String chat_id;
@@ -444,7 +472,7 @@ String savedUsername = "";
 bool botConfigureWiFi = false;
 bool newWIFIbyBot = false;
 bool newPASSbyBot = false;
-
+bool allertAI = true;
 // LoRa variables
 int count = 0;
 int count_sent = 0;
@@ -454,7 +482,9 @@ uint16_t localAddress = 0x02;
 uint16_t destination = 0xFF;
 String lora_msg = ""; // payload of packet
 bool lora_priority = false;
-// save credentials with Preferences
+
+
+// save WiFi credentials with Preferences
 bool saveCredentials(const String &newSSID, const String &newPassword) {
     Preferences preferences;
     preferences.begin("wifi", false);
@@ -468,7 +498,7 @@ bool saveCredentials(const String &newSSID, const String &newPassword) {
     display->display();
     return true;
 }
-  
+
 // load credentials with Preferences
 bool loadCredentials() {
     Preferences preferences;
@@ -489,20 +519,12 @@ bool loadCredentials() {
     return true;
 }
 
-void on_connected_station(WiFiEvent_t event, WiFiEventInfo_t info) {
-    display->println("ConnectionAP");
-    display->print("Mac address of the client: ");
-    display->printf(MACSTR "\n", MAC2STR(info.wifi_ap_staconnected.mac));
-    display->println(IPAddress(info.wifi_ap_staconnected.aid));
-    display->display();
-}
-
 // Callback for the main page
 void handleRoot(AsyncWebServerRequest *request) {
     request->send(200, "text/html", htmlPage);
 }
 
-// Callback To manage the form
+// Callback to manage the form
 void handleSave(AsyncWebServerRequest *request) {
 
     // verify and read the parameters sent
@@ -517,7 +539,7 @@ void handleSave(AsyncWebServerRequest *request) {
             request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
         }        
         
-        // Dopo aver salvato le credenziali, cambia modalità a STA
+        // after saving the credentials, changes to ap_sta modes
         display->println("Dati Salvati");
         display->println("SSID: " + ssid);
         display->println("Password: " + password);
@@ -529,6 +551,15 @@ void handleSave(AsyncWebServerRequest *request) {
     }
 }
 
+void on_connected_station(WiFiEvent_t event, WiFiEventInfo_t info) {
+    display->println("ConnectionAP");
+    display->print("Mac address of the client: ");
+    display->printf(MACSTR "\n", MAC2STR(info.wifi_ap_staconnected.mac));
+    display->println(IPAddress(info.wifi_ap_staconnected.aid));
+    display->display();
+}
+
+// configure the wifi depending on the way
 void configureWiFi(wifi_mode_t mode) {
     switch (mode) {
         case WIFI_AP:
@@ -578,7 +609,6 @@ void configureWiFi(wifi_mode_t mode) {
                 display->setCursor(0,0);
                 display->println("Connected to WiFi");                
                 display->println("SSID: " + ssid);
-                //!display->println("IP Address: " + WiFi.localIP());
                 display->display();
             } else {
                 display->clearDisplay();
@@ -591,6 +621,7 @@ void configureWiFi(wifi_mode_t mode) {
     }
 }
 
+// save the details of the chat for the Telegram Bot
 bool saveChatDetails(const String &newChatID, const String &newUsername) {
     savedChatID = newChatID;
     savedUsername = newUsername;
@@ -609,14 +640,15 @@ bool saveChatDetails(const String &newChatID, const String &newUsername) {
     return true;
 }
 
+// load the details of the chat for the Telegram Bot
 bool loadChatDetails() {
     Preferences preferences;
-    preferences.begin("telegram", true);  // true -> sola lettura
+    preferences.begin("telegram", true);  // true -> reading only
     savedChatID = preferences.getString("chat_id", "");
     savedUsername = preferences.getString("username", "");
     preferences.end();
 
-    // Chat ID not found
+    // chatID not found
     if (savedChatID.isEmpty()) 
         return false;
     
@@ -628,6 +660,16 @@ bool loadChatDetails() {
     return true;
 }
 
+/**
+ * @brief manages the messages received from a telegram bot (TonyBot).
+ * Depending on the command received, 
+ * (/start, /reboot, /description, /about, /commands, /configurewifi, /ai, /allert_ai), 
+ * performs different actions such as saving chat details, send reply messages,
+ * configure wifi, or perform forecasts with the AI.
+ * 
+ * @param m the message from the Telegram bot, 
+ * of type `telegramMessage` struct, containing the message details
+ */
 void handleNewMessages(telegramMessage m) {
     bot_active = true;
     chat_id = m.chat_id;
@@ -641,42 +683,65 @@ void handleNewMessages(telegramMessage m) {
     display->printf("%s:\n", from_name.c_str());
     display->printf("%s\n", text.c_str());
     display->display();
- 
+
     if (text == "/start") {
         saveChatDetails(chat_id, from_name);
-        bot.sendMessage(chat_id, "Hello " + from_name + "! I am Mailton 📬🔔 a bot telegram on Arduino! I will see you when it comes mail!");
+        bot.sendMessage(chat_id, "Hello " + from_name + "! I am TonyBot 🤖 a bot telegram on Mailton 📬🔔 (Ardunio)! \n\n When the mail arrives, PostaLino📪📣 will notify us. \nSee you when the mail arrives! 👀📨");
     }
     // ignored message for unauthorized user
     if (savedChatID != chat_id)
         return;
 
     if (text == "/reboot") {
-        bot.sendMessage(chat_id, "Ciao " + from_name + " Arduino è stato riavviato, ma adesso sono di nuovo attivo!🚀");
+        bot.sendMessage(chat_id, "Hello  " + from_name + "!🔔\n MailTon 📬🔔 has been restarted, but now I'm active again!🚀");
+        botConfigureWiFi = false;
     } else if (text == "/description") {
         bot.sendMessage(chat_id, "🚀");
+        botConfigureWiFi = false;
     } else if (text == "/about") {
         bot.sendMessage(chat_id, "🚀");
+        botConfigureWiFi = false;
     } else if (text == "/commands") {
-        bot.sendMessage(chat_id, "Available commands:\n/start - Start the bot\n/reboot - Reboot the bot\n/description - Get a description\n/about - About this bot\n/commands - List all commands \n/configurewifi - Configure your WiFi");
+        bot.sendMessage(chat_id, "🎛️  Available commands:\n\n     ✅  /start - Start the bot\n\n     🔄️  /reboot - Reboot the bot\n\n     📑  /description - Get a description\n\n     📄  /about - About this bot\n\n     🕹️  /commands - List all commands \n\n     🛜  /configurewifi - Configure your WiFi \n\n     ❇️  /ai - Artificial Intelligence \n\n     ⚠️  /allert_ai - On/Off Alert notification from AI \n\n");
+        botConfigureWiFi = false;
     } else if (text == "/configurewifi") {
-        bot.sendMessage(chat_id, "OK. Send me the new SSDI of your WiFi", "");
+        bot.sendMessage(chat_id, "🆗 Send me the new SSDI of your WiFi 🛜", "");
         botConfigureWiFi = true;
         newWIFIbyBot = true;
         return;
-    } else if(!botConfigureWiFi){
+    } else if(text == "/ai"){
+        DetectionAndPrediction();
+        String message = "🏠 Here are values ​​in your room in real time!  \n\n";
+        message += "    📟  Real real values ​​from Mailton: \n\n";
+        message += "        🌡️  Temperature: " + String(temperature) + " °C\n\n";
+        message += "        💧  Moisture: " + String(humidity) + " %\n\n";
+        message += "    🤖  Values ​​predicted by the AI: \n\n";
+        message += "        🔮  PPM CO predicted: " + String(ppm_value) + "\n\n";
+        message += "        📋  Temperature & Humidity Class: \n";
+        message += "               " + String(temp_humidity_class) + " = " + tempHumidityClassToText(temp_humidity_class) + "\n\n";
+        message += "        🛡️  PPM CO Class: " + String(ppm_class) + " = " + ppmClassToText(ppm_class) + "\n\n";
+        bot.sendMessage(chat_id, message);
+        botConfigureWiFi = false;
+    }else if(text == "/allert_ai"){
+        allertAI = !allertAI;
+        if (allertAI) bot.sendMessage(chat_id, "🔔 L'allert of forecasts with AI is active! 🤖", "");
+        else bot.sendMessage(chat_id, "🔕 OK. L'allert of forecasts with AI is disabled. 🛑", "");
+        botConfigureWiFi = false;
+    }else if(!botConfigureWiFi){
         bot.sendMessage(chat_id, "Unknown command. Type /commands to see the list of available commands.");
     }
     
+    // for wifi configuration
     if (botConfigureWiFi){
         if (newWIFIbyBot){
             ssid = text;
-            bot.sendMessage(chat_id, "OK. Now send me the password of your WiFi", "");
+            bot.sendMessage(chat_id, "🆗 Now send me the password🔑 of your WiFi 🛜", "");
             newWIFIbyBot = false;
             newPASSbyBot = true;
             return;
         } 
         if (newPASSbyBot){
-            bot.sendMessage(chat_id, "OK. Saved credentials! Now wait for the connection restart.", "");
+            bot.sendMessage(chat_id, "🆗 Saved credentials🔑! Now wait for the connection restart 🔄️.", "");
             bot.sendMessage(chat_id, "⏱️", "");
             newPASSbyBot = false;
             password = text;
@@ -689,22 +754,30 @@ void handleNewMessages(telegramMessage m) {
     }
 }
 
+
+/**
+ * @brief Manager to send messages to the bot 
+ * in relation to the messages received with LoRa
+ */
 void handlerSendMessage() {
     display->clearDisplay();
     display->setCursor(0,0);
     
     if(bot_active){
         if (lora_msg == "Mailbox Opened") {
-            bot.sendMessage(chat_id, "Mailbox Opened, someone is already withdrawing the mail 📭");
+            bot.sendMessage(chat_id, "📬 Mailbox Opened, someone is already withdrawing the mail 📭");
             display->println("Send to bot: Mailbox Opened");
             display->display();
         }else if (lora_msg == "New Mail"){
-            bot.sendMessage(chat_id, "Mail in the mailbox!📬");
+            static bool mFlag= false;
+            if(mFlag) bot.sendMessage(chat_id, "🔔 Lino the Postino warned me that there is placed in the mailbox! 📬");
+            else bot.sendMessage(chat_id, "🔔 PostaLino warned me that there is placed in the mailbox! 📬");
+            mFlag = !mFlag;
             display->println("Send to bot: mail in the mailbox!");
             display->display();
         } else {
-            bot.sendMessage(chat_id, "Error");
-            display->println("Send to bot: Error!");
+            bot.sendMessage(chat_id, "❌ Error test! 📨");
+            display->println("Send to bot: Error test!");
             loraFlagError = true;
             digitalWrite(LED_RED, HIGH);
         }
@@ -714,6 +787,7 @@ void handlerSendMessage() {
     }
 }
 
+// Reboot message, to reactivate the sending of messages to the bot
 void SendRebootMessageBot(){
     telegramMessage rebootMsg;
     rebootMsg.chat_id = savedChatID;
@@ -723,6 +797,7 @@ void SendRebootMessageBot(){
     handleNewMessages(rebootMsg);
 }
 
+// Function to receive messages Lora
 void onLoRaReceive(int packetSize) {
     lora_priority = true;
     // if there's no packet, return
@@ -772,33 +847,36 @@ void onLoRaReceive(int packetSize) {
 
     if(!loraFlagError){    
         lora_msg = incoming.c_str();
-        loraFlagReceived = true;
     }
+
+    loraFlagReceived = true;
+
     lora_priority = false;
 }
 
-void onLoRaSend(){
-    
+// this function uses the interrupt when it is called
+void onLoRaSend(){    
 }
 
-void sendMessageLoRa(){
+// send message LoRa (without interrupt)
+void sendMessageLoRa(const String &loraSendMsg){
     digitalWrite(LED_RED, HIGH);
-    String lora_error = "NOTACK";
+    String msg = loraSendMsg;
     lora->beginPacket();
 
-    lora->write(destination);              // add destination address
-    lora->write(localAddress);             // add sender address
-    lora->write(count_sent);               // add message ID
-    lora->write(lora_error.length());        // add payload length
+    lora->write(destination);  // add destination address
+    lora->write(localAddress); // add sender address
+    lora->write(count_sent);   // add message ID
+    lora->write(msg.length()); // add payload length
     
     byte checksum = 0;
-    for (int i = 0; i < lora_error.length(); i++) {
-        checksum ^= lora_error[i];
+    for (int i = 0; i < msg.length(); i++) {
+        checksum ^= msg[i];
     }
     lora->write(checksum); // add checksum
-    lora->print(lora_msg); // add payload
+    lora->print(msg); // add payload
 
-    lora->endPacket(true); // true = async / non-blocking mode
+    lora->endPacket(true); // true=>async, non-blocking mode
     count_sent++;
     lora->receive();
 
@@ -808,7 +886,86 @@ void sendMessageLoRa(){
     digitalWrite(LED_RED, LOW);
 }
 
+//? ************ debug for AI model *************
+void printArray(float* arr, int size) {
+    String message;
+    // Stampa ogni elemento dell'array
+    for (int i = 0; i < size; i++) {
+        message += "y_pred[" + String(i) + "] = " + String(arr[i]) + "\n";
+    }
+    bot.sendMessage(chat_id, message);
+}
+void printClassAndProbability(float* arr, int size) {
+    int index = 0;
+    float maxVal = arr[0];
+    // Trova l'indice della classe con la probabilità massima
+    for (int i = 1; i < size; i++) {
+        if (arr[i] > maxVal) {
+            maxVal = arr[i];
+            index = i;
+        }
+    }
+}
+//? *******************************************
+
+// classes conversion
+String tempHumidityClassToText(int value) {
+    switch(value) {
+        case 0: return "Low Temperature, Dry Humidity";
+        case 1: return "Low Temperature, Normal Humidity";
+        case 2: return "Low Temperature, Humid";
+        case 3: return "Medium Temperature, Dry Humidity";
+        case 4: return "Medium Temperature, Normal Humidity";
+        case 5: return "Medium Temperature, Humid";
+        case 6: return "High Temperature, Dry Humidity";
+        case 7: return "High Temperature, Normal Humidity";
+        case 8: return "High Temperature, Humid";
+        default: return "Unknown Class";
+    }
+}
+
+String ppmClassToText(int value) {
+    switch(value) {
+        case 0: return "Good Air Quality";
+        case 1: return "Moderate Air Quality";
+        case 2: return "Poor Air Quality";
+        case 3: return "Very Poor Air Quality";
+        default: return "Unknown Class";
+    }
+}
+
+// search and return the index that contains the highest probability
+int maxIndex(float* arr, int size) {
+        int index = 0;
+        float maxVal = arr[0];
+        for (int i = 1; i < size; i++) {
+            if (arr[i] > maxVal) {
+                maxVal = arr[i];
+                index = i;
+            }
+        }
+        return index;
+}
+
+void SendAllertMsgBot(){
+    if (bot_active && allertAI) {
+            String message = "⚠️ Attention these are the values ​​in your room in real time!\n\n";
+            message += "    📟  Real real values ​​from Mailton: \n\n";
+            message += "        🌡️  Temperature: " + String(temperature) + " °C\n\n";
+            message += "        💧  Moisture: " + String(humidity) + " %\n\n";
+            message += "    🤖  Values ​​predicted by the AI: \n\n";
+            message += "        🔮  PPM CO predicted: " + String(ppm_value) + "\n\n";
+            message += "        📋  Temperature & Humidity Class: \n";
+            message += "               " + String(temp_humidity_class) + " = " + tempHumidityClassToText(temp_humidity_class) + "\n\n";
+            message += "        🛡️  PPM CO Class: " + String(ppm_class) + " = " + ppmClassToText(ppm_class) + "\n\n";
+            bot.sendMessage(chat_id, message);
+    }   
+}
+
+// measurements and predictions of model values ​​ai
 void DetectionAndPrediction(){
+
+    // Detection with dht11 sensor
     display->clearDisplay();
     display->setCursor(0,16);
     float newT = dht.readTemperature();
@@ -816,80 +973,89 @@ void DetectionAndPrediction(){
     if (isnan(newT)) {
         display->println(F("I can't read the DHT sensor!"));
         display->display();
-    }
-    else {
-      temperature = newT;
-      display->print("Temperatura = ");
-      display->println(temperature);
-      display->display();
+    } else {
+    temperature = newT;
+    display->print("Temperatura = ");
+    display->println(temperature);
+    display->display();
     }
 
     float newH = dht.readHumidity();
 
     if (isnan(newH)) {
-      display->println(F("I can't read the DHT sensor!"));
-      display->display();
-    }
-    else {
-      humidity = newH;
-      display->print("Humidity = ");
-      display->println(humidity);
-      display->display();
+    display->println(F("I can't read the DHT sensor!"));
+    display->display();
+    } else {
+    humidity = newH;
+    display->print("Humidity = ");
+    display->println(humidity);
+    display->display();
 
     }
 
-    // ------------------------------------------------------------
+    // -------------------- PREDICTION AND CLASSIFICATION -----------------------
 
-    float raw_input[NUMBER_OF_INPUTS] = {temperature, humidity}; 
+    float raw_input[NUMBER_OF_INPUTS] = {temperature, humidity, ppm_value}; 
 
-    // Normalizzazione MinMaxScaler
+    // MinMaxScaler normalization
     float input[NUMBER_OF_INPUTS];
     input[0] = (raw_input[0] - INPUT_MIN_1) / (INPUT_MAX_1 - INPUT_MIN_1);
     input[1] = (raw_input[1] - INPUT_MIN_2) / (INPUT_MAX_2 - INPUT_MIN_2);
-    // input[2] = (raw_input[2] - INPUT_MIN_3) / (INPUT_MAX_3 - INPUT_MIN_3);
+    input[2] = (raw_input[2] - INPUT_MIN_3) / (INPUT_MAX_3 - INPUT_MIN_3);
 
-    // Inferenza
+    // Inference
     float y_pred[NUMBER_OF_OUTPUTS];
     ml.predict(input, y_pred);
 
-    // Decodifica il valore predetto di PPM (se è stato scalato tra 0-1)
-    float ppm_value = y_pred[0] * (INPUT_MAX_3 - INPUT_MIN_3) + INPUT_MIN_3;
+    // the aforementioned value of PPM decodes (if it has been climbed between 0-1)
+    ppm_value = y_pred[0] * (INPUT_MAX_3 - INPUT_MIN_3) + INPUT_MIN_3;
+    
+    temp_humidity_class = y_pred[1];
+    ppm_class = y_pred[2];
 
-    // Decodifica la classe di temperatura/umidità (prendi l'indice con il valore massimo)
-    int temp_humidity_class = 0;
-    for (int i = 1; i < 3; i++) {
-        if (y_pred[i] > y_pred[temp_humidity_class]) {
-            temp_humidity_class = i;
-        }
-    }
-
-    // Decodifica la classe PPM
-    int ppm_class = 3; // Indice iniziale della classe PPM
-    for (int i = 3; i < 5; i++) {
-        if (y_pred[i] > y_pred[ppm_class]) {
-            ppm_class = i;
-        }
-    }
-
-    // Stampa i risultati
-    Serial.print("PPM Predetto: ");
-    Serial.println(ppm_value);
-    Serial.print("Classe Temp/Humidity: ");
-    Serial.println(temp_humidity_class);
-    Serial.print("Classe PPM: ");
-    Serial.println(ppm_class - 3);  // Normalizza l'indice della classe PPM
+    temp_humidity_class = maxIndex(y_pred, 8);
+    ppm_class = maxIndex(y_pred + 9, 3);
+    
+    //! debug for class value
+    //printArray(y_pred, 13);
+    
+    //Serial.print("PPM Predetto: ");
+    //Serial.println(ppm_value);
+    //Serial.print("Classe Temp/Humidity: ");
+    //Serial.println(temp_humidity_class);
+    //Serial.print("Classe PPM: ");
+    //Serial.println(ppm_class); 
     display->print("PPM Predetto: ");
     display->println(ppm_value);
     display->print("Classe Temp/Humidity: ");
     display->println(temp_humidity_class);
     display->print("Classe PPM: ");
-    display->println(ppm_class - 3);  // Normalizza l'indice della classe PPM
+    display->println(ppm_class);
     display->display();
+
+
+    // allert with bot every 2 hours
+    static unsigned long lastDetectionTime = 0;
+    unsigned long currentMillis = millis();
+
+    if (lastDetectionTime == 0) {
+        if (ppm_value > 760 || ppm_class >= 3 || temp_humidity_class >= 6) {
+            SendAllertMsgBot();
+        }
+        lastDetectionTime = currentMillis;
+    }
+    if (currentMillis - lastDetectionTime >= 7200000) { // 7200000 ms = 2 hours
+        if (ppm_value > 760 || ppm_class >= 3 || temp_humidity_class >= 6) {
+            SendAllertMsgBot();
+        }
+        lastDetectionTime = currentMillis;
+    }    
 }
 
 void setup() {
     IoTBoard::init_serial();
     IoTBoard::init_leds();
+    
     IoTBoard::init_display();
     display->println(F("Display enabled"));
     display->display();
@@ -916,18 +1082,18 @@ void setup() {
 
     net_ssl.setInsecure(); 
     
-    // Prova a caricare le credenziali
+    // try to load the credentials
     if(loadCredentials()) {
         digitalWrite(LED_GREEN, HIGH);
 
-        // Se le credenziali sono state caricate, prova a connetterti in modalità Station
+        // if the credentials have been loaded, try connecting to Station mode
         display->clearDisplay();
         display->setCursor(0, 0);
         display->println(F("Attempt to connect to the Wi-Fi saved network ..."));
         display->display();   
         configureWiFi(WIFI_AP_STA);
     } else {
-        // Avvia in modalità AP per permettere la configurazione iniziale
+        // start in AP mode to allow the initial configuration
         display->clearDisplay();
         display->setCursor(0, 0);
         display->println(F("AP mode, configure wifi!"));
@@ -938,12 +1104,14 @@ void setup() {
 
     if(WiFi.status() == WL_CONNECTED && loadChatDetails()){
         bot_active = true;
-        // send message passing the /reboot command
+        // send message passing the `/reboot` command
         SendRebootMessageBot();
     }
 
+    // init dht11 sensor
     dht.begin();
 
+    // init AI model
     if (!ml.begin(model_data)) {
         Serial.println("Errore nel caricamento del modello!");
         while (true);
@@ -952,7 +1120,8 @@ void setup() {
 }
 
 void loop() {
-    // WiFi configuration
+    
+    // WiFi auto-configuration
     dnsServer.processNextRequest();
     if (firstConnection && WiFi.status() != WL_CONNECTED && WiFi.getMode() == WIFI_AP_STA) {
         digitalWrite(LED_RED, HIGH);
@@ -986,6 +1155,7 @@ void loop() {
         }
     }
 
+    // message received from telegram bot (TonyBot)
     if (!lora_priority){
         // download messages received every (Bot_lasttime + Bot_mtbs)ms
         if (connected && millis() > Bot_lasttime + Bot_mtbs) {
@@ -1000,35 +1170,35 @@ void loop() {
         }
     } 
 
+    // reaction to the LoRa incorrect messages received
     if (loraFlagError){
         loraFlagReceived = false;
         display->display();
-        sendMessageLoRa();
+        sendMessageLoRa("NACK");
         delay(100);
         digitalWrite(LED_RED, LOW);
     }
-
+    // reaction to the LoRa correct messages received
     if(loraFlagReceived){
         loraFlagReceived = false;
         display->display();
+        sendMessageLoRa("ACK");
+        delay(100);
         handlerSendMessage();
         delay(100);
     }  
 
-
+    // detection and prediction value wiht AI model every 10s
     static unsigned long lastDetectionTime = 0;
     unsigned long currentMillis = millis();
 
-    // Call DetectionAndPrediction() immediately after power on
     if (lastDetectionTime == 0) {
         DetectionAndPrediction();
         lastDetectionTime = currentMillis;
     }
-
-    if (currentMillis - lastDetectionTime >= 900000) { // 900000 ms = 15 minutes
+    if (currentMillis - lastDetectionTime >= 10000) {
         DetectionAndPrediction();
         lastDetectionTime = currentMillis;
     }
-     
-    delay(10);
+
 }
