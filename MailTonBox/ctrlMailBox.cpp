@@ -2,7 +2,7 @@
  * @file ctrlMailBox.cpp
  * @author Alessandro Ferrante (github@alessandroferrante)
  * @brief 
- * @version 2.6
+ * @version 3.0
  * @date 2025-03-06
  * 
  * @copyright Copyright (c) 2025
@@ -17,14 +17,13 @@
 
 #define SERVO_PIN D9 // Pin di controllo del servo
 
-
 bool loraFlagReceived = false;
 bool loraFlagError = false;
 int count = 0;
 int count_sent = 0;
 bool displayNeedUpdate = false;
 
-// addresses devices for LoRa communication
+// for LoRa communication
 uint16_t localAddress = 0xFF; 
 uint16_t destination = 0x02;       
 int theshold = 2;
@@ -33,6 +32,7 @@ int readings_made = 0;
 String last_lora_msg = "New Mail";
 String lora_msg = "";
 bool lora_priority = false;
+String last_message_received;
 
 // variables for ultrasound sensor
 long signal_duration;
@@ -51,6 +51,10 @@ bool wait_rotary = false;
 // servo
 bool wait_servo = false;
 bool servo_open = false;
+
+unsigned long lastSendTime = 0;
+const unsigned long waitTime = 15000; // Tempo di attesa per la risposta (5 secondi)
+bool waitingForResponse = false;
 
 void IRAM_ATTR rotaryChanged() {
     wait_rotary = true;
@@ -76,6 +80,10 @@ void writeServo(int angle) {
     if(angle == 90) servo_open = false;
     else servo_open = true;
     wait_servo = false;
+}
+
+bool isAckMessage(const String& message) {
+    return message == "ACK";
 }
 
 void onLoRaReceive(int packetSize) {
@@ -122,8 +130,9 @@ void onLoRaReceive(int packetSize) {
     display->printf("Snr: %02f\n", lora->packetSnr());
     
     lora->receive();
+    last_message_received = incoming.c_str();
+    loraFlagReceived = true; // Imposta il flag di ricezione se non è un ACK
 
-    loraFlagReceived = true;
 }
 
 void onLoRaSend() {
@@ -154,13 +163,15 @@ void sendMessageLoRa(){
     lora->receive();
 
     loraFlagReceived = false;
+    waitingForResponse = true; // Imposta il flag di attesa
+    lastSendTime = millis(); // Registra il tempo di invio
 
     digitalWrite(LED_GREEN, LOW);
     lora_priority = false;
 }
 
 void onBtn1Released(uint8_t pinBtn){
-    lora_msg = "AAAAAAAAAAAAAAAAAAAAAAAA";
+    lora_msg = "AAAAAAAA";
     sendMessageLoRa();
 }
 
@@ -301,15 +312,28 @@ void loop() {
     if(!mailbox_open)
         message_sent = false; // reset when the mailbox is closed
 
+
+    // if the waiting time (waitTime=15s) has expired, retransmitte message, 
+    if (waitingForResponse && (millis() - lastSendTime > waitTime)) {
+        sendMessageLoRa();
+    }
+    // if receives an answer, check if he is an ACK, otherwise postpone
     if(loraFlagReceived){
         lora_msg = last_lora_msg;
-        delay(10);
-        noInterrupts();
-        sendMessageLoRa();
-        interrupts();
-        delay(100);
-        loraFlagReceived = false;
+        
+        if (isAckMessage(last_message_received)) {
+            waitingForResponse = false; // reset of the waiting flag
+        } else {
+            delay(10);
+            noInterrupts();
+            sendMessageLoRa();
+            interrupts();
+            delay(100);
+        }
+        
+        loraFlagReceived = false;       
         display->display();
+        delay(1000);
     }
 
     if (loraFlagError){
@@ -326,7 +350,7 @@ void loop() {
         mailbox_open = true;
     }*/
     
-//    delay(1000);
+    //    delay(1000);
     
     if (!mailbox_open){
         writeServo(90);
