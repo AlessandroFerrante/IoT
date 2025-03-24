@@ -16,7 +16,7 @@
  * The system uses various libraries including Arduino, WiFi, AsyncTCP, ESPAsyncWebServer, DNSServer, Preferences, 
  * ArduinoJson, WiFiClientSecure, UniversalTelegramBot, Adafruit_Sensor, DHT, and EloquentTinyML.
  * 
- * @version 3.1
+ * @version 3.2
  * @date 2025-03-05
  * 
  * @note Ensure to configure the Wi-Fi and Telegram bot credentials before deploying the system.
@@ -78,6 +78,47 @@ AsyncWebServer server(80);
 DNSServer dnsServer;
 const byte DNS_PORT = 53;
 
+Preferences preferences;
+
+// WiFi configuration
+void configureWiFi(wifi_mode_t mode);
+String ssid;
+String password;
+bool firstConnection = false;
+bool connected = false;
+const char *ssidAP = "MailTonAP";
+const char *passwordAP = "12345"; // random 
+String MAILTON_KEY =  "00BKFWR39FN48FN40GM30DM69GJ"; // random
+
+// Telegram bot
+WiFiClientSecure net_ssl;
+String username="", user_password = "";
+String telegramToken = "";
+UniversalTelegramBot bot(telegramToken, net_ssl);
+int Bot_mtbs = 200;
+long Bot_lasttime;
+String chat_id;
+String from_name;
+bool bot_active =  false;
+bool bot_started = false;
+String savedChatID = "";  
+String savedUsername = "";
+bool botConfigureAccount = false;
+bool userFlagBot, passFlagBot = false;
+bool botConfigureWiFi = false;
+bool newWIFIbyBot = false;
+bool newPASSbyBot = false;
+bool allertAI = true;
+// LoRa variables
+int count = 0;
+int count_sent = 0;
+bool loraFlagReceived = false;
+bool loraFlagError = false;
+uint16_t localAddress = 0x02;     
+uint16_t destination = 0xFF;
+String lora_msg = ""; // payload of packet
+bool lora_priority = false;
+
 const char* htmlPage = R"rawliteral(
 <!DOCTYPE html>
 <html>
@@ -96,25 +137,29 @@ const char* htmlPage = R"rawliteral(
             --footer: #033D42;
             --footer-font: #032529;
         }
+        ::-webkit-scrollbar {
+        display: none;
+        }      
         body {
+        padding: 0;
+        margin: 0;
             font-family: 'Poppins', sans-serif;
-            height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             background-color: var(--background-neumorphism);
             background-repeat: repeat;
-            overflow: hidden;
+            overflow-x: hidden;
         }
         #home{
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
+            gap: 50px;
+            justify-content: center;
             align-items: center;
             width: 100%;
+            min-height: max-content;
+            height: 100%;
         }
         .topnav {
-            top:0px;  
-            position: fixed;
+            position: absolute;
             width: 90%;
             margin-top: 10px;
             height: 50px;
@@ -130,7 +175,6 @@ const char* htmlPage = R"rawliteral(
             background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
             box-shadow:  -4px -4px 8px var(--up-box),
                 4px 4px 8px var(--down-box);
-            
         }
         .topnav h1{
             font-size: 20px;
@@ -167,15 +211,16 @@ const char* htmlPage = R"rawliteral(
         .container {
             color: var(--font-green);
             padding: 40px 30px;
+            height: max-content;
             width: 300px;
             text-align: center;
             margin-top: 80px;
+            margin-bottom: 20px;
             border-radius: 25px;
             transition: 0.6s ease-out;
             background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
             box-shadow:  -5px -5px 10px var(--up-box),
                 5px 5px 10px var(--down-box);
-            margin-bottom: 50px;
         }
         .container h1 {
             color: #27873D;
@@ -235,17 +280,20 @@ const char* htmlPage = R"rawliteral(
             color: var(--font-green);
             text-transform: capitalize;
         }
-        @media only screen and (max-width: 600px) {
+        @media only screen and (max-width: 800px) {
+            #home{
+                flex-direction: column;
+            }
             .container {
                 width: 300px;
-                margin-top: 90px;
+                margin-top: 100px;
+                margin-bottom: 0;
             }
             input[type="text"], input[type="password"], input[type="submit"] {
                 width: 100%;
             }
         }
         .footer {
-            position: fixed;
             bottom: 0;
             width: 100%;
             text-align: center;
@@ -261,8 +309,8 @@ const char* htmlPage = R"rawliteral(
         .footer a {
             color: var(--footer-font);
         }
-        
         .telegram-bot {
+            margin-top: 80px;
             padding: 30px 20px;
             font-weight: bold;
             font-size: 15px;
@@ -356,38 +404,51 @@ const char* htmlPage = R"rawliteral(
     </style>
 </head>
 <body>
+<div class="topnav">
+    <div class="title">
+        <h1>MailTonBox</h1>
+        <p>✉️ 🔔 📬</p>
+    </div>  
+    <div class="right-links">
+        <a href="#home">Home</a>
+        <a href="javascript:void(0)" onclick="openModal()">About</a>
+        <a href="https://alessandroferrante.net/">Contact</a>
+    </div>
+</div>
     <div id="home">
-        <div class="topnav">
-            <div class="title">
-                <h1>MailTonBox</h1>
-                <p>✉️ 🔔 📬</p>
-            </div>  
-            <div class="right-links">
-                <a href="#home">Home</a>
-                <a href="javascript:void(0)" onclick="openModal()">About</a>
-                <a href="https://alessandroferrante.net/">Contact</a>
-            </div>
-        </div>
         <div class="container">
-            <h1>Set your Wi-Fi</h1>
-            <form id="wifiForm">
-                <label for="ssid">SSID:</label><br>
-                <input type="text" placeholder="Enter SSID your WiFi" id="ssid" name="ssid" required>
-                <label for="password">Password:</label><br>
-                <input placeholder="Enter password your WiFi" type="password" id="password" name="password" required><br><br>
+            <form id="dataForm">
+                <div>
+                    <h1>Set your MailTon</h1>
+                    <label for="mailtonkey">MailTon KEY*:</label><br>
+                    <input placeholder="Enter your MailTon KEY" type="password" id="mailtonkey" name="mailtonkey" required><br>
+                    <label for="Username">Username*:</label><br>
+                    <input type="text" placeholder="Enter your Username" id="username" name="username" required>
+                    <label for="user_password">Password*:</label><br>
+                    <input placeholder="Enter your password" type="password" id="user_password" name="user_password" required><br>
+                    <label for="token">Telegram Token: <small><i>(optional)</i></small></label><br>
+                    <input type="text" value="Enter your Telegram Token" placeholder="Enter your Telegram Token" id="token" name="token"><br><br>
+                </div>
+                <div>
+                    <h1>Set your Wi-Fi</h1>
+                    <label for="ssid">SSID*:</label><br>
+                    <input type="text" placeholder="Enter SSID your WiFi" id="ssid" name="ssid" required>
+                    <label for="password">Password*:</label><br>
+                    <input placeholder="Enter password your WiFi" type="password" id="password" name="password" required><br><br>
+                </div>
                 <input type="submit" value="Save">
             </form>
         </div>
         <div class="telegram-bot">
             <h1>Connect with our Telegram Bot</h1>
-            <p>MailTonBot helps you manage your mailbox, send notifications, and never miss important mail! 📬🚀 </p>
+            <p>TonyBot helps you manage your mailbox, send notifications, and never miss important mail! 📬🚀 </p>
             <a href="https://t.me/MailTonyBot" target="_blank">Click here to connect</a>
         </div>
         <div id="aboyModal" class="modal">
             <div class="modal-content">
                 <a href="javascript:void(0)" onclick="openModal()">X</a>
                     <h1>About MailTon</h1>
-                    <p>The device <b style="color: #0bd43a;">mailTon</b> It is the main component of the IoT system for your mailbox. Follow these instructions to configure it correctly:</p>
+                    <p>The device <b style="color: #0bd43a;">MailTon</b> It is the main component of the IoT system for your mailbox. Follow these instructions to configure it correctly:</p>
                     <ul>
                         <li><b style="color: #0bd43a;">WiFi connection</b>: Make sure that Mailton is connected to your WiFi network.</li>
                         <li><b style="color: #0bd43a;">Telegram notifications</b>: Once connected, Mailton can send notifications via Telegram.</li>
@@ -424,7 +485,7 @@ const char* htmlPage = R"rawliteral(
                 modalActive = true;
             }
         }
-        document.getElementById('wifiForm').addEventListener('submit', function(event) {
+        document.getElementById('dataForm').addEventListener('submit', function(event) {
             event.preventDefault(); // Evita il refresh della pagina
 
             let formData = new FormData(this); 
@@ -450,49 +511,77 @@ const char* htmlPage = R"rawliteral(
 </html>
 )rawliteral";
 
-// WiFi configuration
-void configureWiFi(wifi_mode_t mode);
-String ssid;
-String password;
-bool firstConnection = false;
-bool connected = false;
-// files to save credentials
-const char* credentialsFile = "/wifi.json";
+void resetDevice() {
+    // opens all preferences to delete them
+    preferences.begin("wifi", false);
+    preferences.clear(); 
+    preferences.end();
+    
+    preferences.begin("telegram", false);
+    preferences.clear();  
+    preferences.end();
+    
+    preferences.begin("lora", false);
+    preferences.clear();  
+    preferences.end();
 
-// Telegram bot
-WiFiClientSecure net_ssl;
-UniversalTelegramBot bot("7411303563:AAEcRU9EZebULA2VXfuVt-theJ8nRZf2ZpQ", net_ssl);
-int Bot_mtbs = 200;
-long Bot_lasttime;
-String chat_id;
-String from_name;
-bool bot_active =  false;
-String savedChatID = "";  
-String savedUsername = "";
-bool botConfigureWiFi = false;
-bool newWIFIbyBot = false;
-bool newPASSbyBot = false;
-bool allertAI = true;
-// LoRa variables
-int count = 0;
-int count_sent = 0;
-bool loraFlagReceived = false;
-bool loraFlagError = false;
-uint16_t localAddress = 0x02;     
-uint16_t destination = 0xFF;
-String lora_msg = ""; // payload of packet
-bool lora_priority = false;
+    preferences.begin("account", false);
+    preferences.clear();  
+    preferences.end();
+
+    display->println("Total reset: all configurations have been deleted!");
+    display->display();
+    
+    // restart the device
+    ESP.restart();
+}
+    
+// save Account credentials with Preferences
+bool saveAccountCredentials(const String &newUsername, const String &newUser_password, const String &newTelegramToken) {
+    preferences.begin("account", false);
+    preferences.putString("username", newUsername);
+    preferences.putString("user_password", newUser_password);
+    preferences.putString("Telegram Token", newTelegramToken);
+    preferences.end();
+
+    display->println("Saved Account credentials:");
+    display->println("Username: " + newUsername);
+    display->println("Password: " + newUser_password);
+    display->println("Telegram Token: " + newTelegramToken); 
+    display->display();
+    return true;
+}
+
+// load Account credentials with Preferences
+bool loadAccountCredentials() {
+    preferences.begin("account", true);
+    username = preferences.getString("username", "");
+    user_password = preferences.getString("user_password", "");
+    telegramToken = preferences.getString("telegramToken", "");
+    preferences.end();
+
+    if (username.isEmpty() || user_password.isEmpty()) {
+        Serial.println("Account credentials don't find");
+        return false;
+    }
+
+    display->println("Account credentials loaded:");
+    display->println("Username: " + username);
+    display->println("Password: " + user_password); 
+    display->println("Telegram Token: " + telegramToken); 
+    display->display();
+    return true;
+}
 
 
 // save WiFi credentials with Preferences
-bool saveCredentials(const String &newSSID, const String &newPassword) {
-    Preferences preferences;
+bool saveWiFiCredentials(const String &newSSID, const String &newPassword) {
     preferences.begin("wifi", false);
     preferences.putString("ssid", newSSID);
     preferences.putString("password", newPassword);
     preferences.end();
 
-    display->println("Credenziali salvate:");
+    display->println("Saved WiFi credentials:");
     display->println("SSID: " + newSSID);
     display->println("Password: " + newPassword);
     display->display();
@@ -500,19 +589,18 @@ bool saveCredentials(const String &newSSID, const String &newPassword) {
 }
 
 // load credentials with Preferences
-bool loadCredentials() {
-    Preferences preferences;
+bool loadWiFiCredentials() {
     preferences.begin("wifi", true);
     ssid = preferences.getString("ssid", "");
     password = preferences.getString("password", "");
     preferences.end();
 
     if (ssid.isEmpty() || password.isEmpty()) {
-        Serial.println("Credenziali non trovate");
+        Serial.println("WiFi credentials you don't find");
         return false;
     }
 
-    display->println("Credenziali caricate:");
+    display->println("Loaded WiFi credentials:");
     display->println("SSID: " + ssid);
     display->println("Password: " + password); 
     display->display();
@@ -522,34 +610,49 @@ bool loadCredentials() {
 // Callback for the main page
 void handleRoot(AsyncWebServerRequest *request) {
     request->send(200, "text/html", htmlPage);
+    
+    //request->send(SPIFFS, "/index.html", "text/html");
+
 }
 
 // Callback to manage the form
 void handleSave(AsyncWebServerRequest *request) {
+    if(request->hasParam("mailtonkey", true) && request->hasParam("username", true) && request->hasParam("user_password", true) && request->hasParam("token", true) && request->hasParam("ssid", true) && request->hasParam("password", true) ) {
+        String MailTonKEY = request->getParam("mailtonkey", true)->value();
 
-    // verify and read the parameters sent
-    if(request->hasParam("ssid", true) && request->hasParam("password", true)) {
-        ssid = request->getParam("ssid", true)->value();
-        password = request->getParam("password", true)->value();
-        
-        // use preferences to save
-        if (saveCredentials(ssid, password)) {
-            request->send(200, "text", "document.getElementById('savedCredentials').style.display='block';");
-        } else {
+        if (MailTonKEY == MAILTON_KEY){
+            username = request->getParam("username", true)->value();
+            user_password = request->getParam("user_password", true)->value();
+            telegramToken = request->getParam("token", true)->value();
+            ssid = request->getParam("ssid", true)->value();
+            password = request->getParam("password", true)->value();
+            
+            // use preferences to save
+            if (saveWiFiCredentials(ssid, password) && saveAccountCredentials(username, user_password, telegramToken)) {
+                request->send(200, "text", "document.getElementById('savedCredentials').style.display='block';");
+            } else {
+                request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
+            }        
+            
+            // after saving the credentials, changes to ap_sta modes
+            display->println("Dati Salvati");
+            display->println("SSID: " + ssid);
+            display->println("Password: " + password);
+            display->println("Username: " + username);
+            display->println("Password: " + user_password); 
+            display->println("Telegram Token: " + telegramToken); 
+            display->display();
+            delay(2000);
+            configureWiFi(WIFI_AP_STA);
+        }
+        else {
             request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
-        }        
-        
-        // after saving the credentials, changes to ap_sta modes
-        display->println("Dati Salvati");
-        display->println("SSID: " + ssid);
-        display->println("Password: " + password);
-        display->display();
-        delay(2000);
-        configureWiFi(WIFI_AP_STA);
+        }
     } else {
         request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
-    }
-}
+    }   
+}  
+
 
 void on_connected_station(WiFiEvent_t event, WiFiEventInfo_t info) {
     display->println("ConnectionAP");
@@ -564,7 +667,7 @@ void configureWiFi(wifi_mode_t mode) {
     switch (mode) {
         case WIFI_AP:
             // configure the form as an access point
-            WiFi.softAP("GatewayConfigAP", NULL);
+            WiFi.softAP(ssidAP, passwordAP);
             //WiFi.onEvent(on_connected_station, ARDUINO_EVENT_WIFI_AP_STACONNECTED);
             
             // the DNS Server redirects all requests to WiFi.softAPIP() and activate router management 
@@ -580,7 +683,8 @@ void configureWiFi(wifi_mode_t mode) {
             // configuration AP mode
             WiFi.disconnect(true);
             WiFi.mode(WIFI_AP_STA);
-            WiFi.softAP("GatewayConfigAP", NULL);
+            WiFi.softAP(ssidAP, passwordAP);
+            
             dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
             server.on("/", HTTP_GET, handleRoot);
             server.on("/", HTTP_POST, handleSave);
@@ -663,7 +767,7 @@ bool loadChatDetails() {
 /**
  * @brief manages the messages received from a telegram bot (TonyBot).
  * Depending on the command received, 
- * (/start, /reboot, /description, /about, /commands, /configurewifi, /ai, /allert_ai), 
+ * (/start, /restart, /description, /about, /commands, /configurewifi, /ai, /allert_ai), 
  * performs different actions such as saving chat details, send reply messages,
  * configure wifi, or perform forecasts with the AI.
  * 
@@ -684,25 +788,41 @@ void handleNewMessages(telegramMessage m) {
     display->printf("%s\n", text.c_str());
     display->display();
 
-    if (text == "/start") {
-        saveChatDetails(chat_id, from_name);
-        bot.sendMessage(chat_id, "Hello " + from_name + "! I am TonyBot 🤖 a bot telegram on Mailton 📬🔔 (Ardunio)! \n\n When the mail arrives, PostaLino📪📣 will notify us. \nSee you when the mail arrives! 👀📨");
+    if(!bot_started){
+        if (text == "/start") {
+            if(loadAccountCredentials()){
+                bot.sendMessage(chat_id, "Hello " + from_name + "! I am TonyBot 🤖 a bot telegram on Mailton 📬🔔 (Ardunio)! \n\n When the mail arrives, PostaLino📪📣 will notify us. \nSee you when the mail arrives! 👀📨");
+                bot.sendMessage(chat_id, "🆗 Send me the Username of your Account !", "");
+                botConfigureAccount = true;
+                userFlagBot = true;
+                return;
+            } else{
+                return;
+            }
+        } 
     }
-    // ignored message for unauthorized user
-    if (savedChatID != chat_id)
+
+    if (savedChatID != chat_id && !botConfigureAccount)
         return;
 
     if (text == "/reboot") {
+        bot.sendMessage(chat_id, "Reboot in progress on Mailton 📬🔔! \nBye bye " + from_name + "👋.");
+        botConfigureWiFi = false;
+        resetDevice();
+    } else if (text == "/restart") {
         bot.sendMessage(chat_id, "Hello  " + from_name + "!🔔\n MailTon 📬🔔 has been restarted, but now I'm active again!🚀");
         botConfigureWiFi = false;
     } else if (text == "/description") {
         bot.sendMessage(chat_id, "🚀");
         botConfigureWiFi = false;
-    } else if (text == "/about") {
-        bot.sendMessage(chat_id, "🚀");
+    } else if (text == "/visibility") {
+        if (bot_started) bot.sendMessage(chat_id, "🆗 Send the /start command with the other device you want to add! Mailton is available for new chats!🚀");
+        else bot.sendMessage(chat_id, "🆗 Mailton is hidden, is not available for new chats!🚀");
+        bot_started = !bot_started;
         botConfigureWiFi = false;
+        botConfigureAccount = false;
     } else if (text == "/commands") {
-        bot.sendMessage(chat_id, "🎛️  Available commands:\n\n     ✅  /start - Start the bot\n\n     🔄️  /reboot - Reboot the bot\n\n     📑  /description - Get a description\n\n     📄  /about - About this bot\n\n     🕹️  /commands - List all commands \n\n     🛜  /configurewifi - Configure your WiFi \n\n     ❇️  /ai - Artificial Intelligence \n\n     ⚠️  /allert_ai - On/Off Alert notification from AI \n\n");
+        bot.sendMessage(chat_id, "🎛️  Available commands:\n\n     ✅  /start - Start the bot\n\n     🔄️  /restart - Restart the bot\n\n     📑  /description - Get a description\n\n     📄  /about - About this bot\n\n     🕹️  /commands - List all commands \n\n     🛜  /configurewifi - Configure your WiFi \n\n     ❇️  /ai - Artificial Intelligence \n\n     ⚠️  /allert_ai - On/Off Alert notification from AI \n\n");
         botConfigureWiFi = false;
     } else if (text == "/configurewifi") {
         bot.sendMessage(chat_id, "🆗 Send me the new SSDI of your WiFi 🛜", "");
@@ -727,10 +847,39 @@ void handleNewMessages(telegramMessage m) {
         if (allertAI) bot.sendMessage(chat_id, "🔔 L'allert of forecasts with AI is active! 🤖", "");
         else bot.sendMessage(chat_id, "🔕 OK. L'allert of forecasts with AI is disabled. 🛑", "");
         botConfigureWiFi = false;
-    }else if(!botConfigureWiFi){
+    }else if(!botConfigureWiFi && !botConfigureAccount && bot_started){
         bot.sendMessage(chat_id, "Unknown command. Type /commands to see the list of available commands.");
     }
     
+    if(botConfigureAccount){
+        if (userFlagBot){ 
+            if(username == text){
+                bot.sendMessage(chat_id, "🆗 Now send me the password🔑", "");
+                userFlagBot = false;
+                passFlagBot = true;
+                return;
+            }else{
+                bot.sendMessage(chat_id, "❌ Wrong username, try again!", "");
+                return;
+            }
+        } 
+        if (passFlagBot){
+            if (user_password == text){
+                bot.sendMessage(chat_id, "🆗 Saved credentials🔑!.", "");
+                bot.sendMessage(chat_id, "✅ Access successfully made!", "");
+                passFlagBot = false;
+                
+                saveChatDetails(chat_id, from_name);
+                botConfigureAccount = false;
+                bot_started = true;
+                return;
+            }else{
+                bot.sendMessage(chat_id, "❌ Wrong password, try again!", "");
+                return;
+            }
+        }  
+    }
+
     // for wifi configuration
     if (botConfigureWiFi){
         if (newWIFIbyBot){
@@ -745,7 +894,7 @@ void handleNewMessages(telegramMessage m) {
             bot.sendMessage(chat_id, "⏱️", "");
             newPASSbyBot = false;
             password = text;
-            saveCredentials(ssid, password);
+            saveWiFiCredentials(ssid, password);
             WiFi.disconnect(true);
             WiFi.mode(WIFI_AP_STA);
             botConfigureWiFi = false;
@@ -787,14 +936,14 @@ void handlerSendMessage() {
     }
 }
 
-// Reboot message, to reactivate the sending of messages to the bot
-void SendRebootMessageBot(){
-    telegramMessage rebootMsg;
-    rebootMsg.chat_id = savedChatID;
-    rebootMsg.text = "/reboot";         
-    rebootMsg.from_name = savedUsername;   
-    // call the HandleNewMessages() by passing the reboot message
-    handleNewMessages(rebootMsg);
+// Restart message, to reactivate the sending of messages to the bot
+void SendRestartMessageBot(){
+    telegramMessage restartMsg;
+    restartMsg.chat_id = savedChatID;
+    restartMsg.text = "/restart";         
+    restartMsg.from_name = savedUsername;   
+    // call the HandleNewMessages() by passing the restart message
+    handleNewMessages(restartMsg);
 }
 
 // Function to receive messages Lora
@@ -1083,7 +1232,7 @@ void setup() {
     net_ssl.setInsecure(); 
     
     // try to load the credentials
-    if(loadCredentials()) {
+    if(loadWiFiCredentials()) {
         digitalWrite(LED_GREEN, HIGH);
 
         // if the credentials have been loaded, try connecting to Station mode
@@ -1102,10 +1251,11 @@ void setup() {
     }
     delay(1000);
 
-    if(WiFi.status() == WL_CONNECTED && loadChatDetails()){
+    if(WiFi.status() == WL_CONNECTED && loadChatDetails() && loadAccountCredentials()){
+        bot_started = true;
         bot_active = true;
-        // send message passing the `/reboot` command
-        SendRebootMessageBot();
+        // send message passing the `/restart` command
+        SendRestartMessageBot();
     }
 
     // init dht11 sensor
@@ -1148,10 +1298,10 @@ void loop() {
         display->display();
         connected = true;
         
-        if(!bot_active && loadChatDetails()){
+        if(!bot_active && loadChatDetails() && loadAccountCredentials()){
             bot_active = true;
-            // send message passing the "/reboot" command
-            SendRebootMessageBot();
+            // send message passing the "/restart" command
+            SendRestartMessageBot();
         }
     }
 
