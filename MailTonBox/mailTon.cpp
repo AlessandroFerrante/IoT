@@ -87,8 +87,7 @@ String password;
 bool firstConnection = false;
 bool connected = false;
 const char *ssidAP = "MailTonAP";
-const char *passwordAP = "12345"; // random 
-String MAILTON_KEY =  "00BKFWR39FN48FN40GM30DM69GJ"; // random
+const char *passwordAP = "ka2smfVFka9fSsk3U"; // random 
 
 // Telegram bot
 WiFiClientSecure net_ssl;
@@ -109,15 +108,20 @@ bool botConfigureWiFi = false;
 bool newWIFIbyBot = false;
 bool newPASSbyBot = false;
 bool allertAI = true;
+
 // LoRa variables
 int count = 0;
 int count_sent = 0;
 bool loraFlagReceived = false;
 bool loraFlagError = false;
 uint16_t localAddress = 0x02;     
-uint16_t destination = 0xFF;
+uint16_t destination = 0;
 String lora_msg = ""; // payload of packet
 bool lora_priority = false;
+
+String MAILTON_KEY =  "00BKFWR39FN48FN40GM30DM69GJ"; // random
+String CTRLMAILBOX_NAME = "CMBX1";
+String CTRLMAILBOX_KEY = "VSJ5KNVS903NJ7N12NN";
 
 const char* htmlPage = R"rawliteral(
 <!DOCTYPE html>
@@ -125,7 +129,7 @@ const char* htmlPage = R"rawliteral(
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta charset="utf-8">
-    <title>Configurazione Wi-Fi</title>
+    <title>Mailton configuration</title>
     <style>
         :root{
             --font-green: #1A6167;
@@ -156,7 +160,7 @@ const char* htmlPage = R"rawliteral(
             align-items: center;
             width: 100%;
             min-height: max-content;
-            height: 100%;
+            height: 100vh;
         }
         .topnav {
             position: absolute;
@@ -209,10 +213,13 @@ const char* htmlPage = R"rawliteral(
             align-items: center;
         }
         .container {
+            display: flex;
+            flex-direction: row;
             color: var(--font-green);
             padding: 40px 30px;
             height: max-content;
-            width: 300px;
+            width: fit-content;
+            gap: 100px;
             text-align: center;
             margin-top: 80px;
             margin-bottom: 20px;
@@ -236,7 +243,7 @@ const char* htmlPage = R"rawliteral(
             color: var(--font-green);
         }
         input[type="text"], input[type="password"] {
-            width: 100%;
+            min-width: 230px;
             padding: 10px;
             margin-bottom: 20px;
             border: 1px solid #ccc;
@@ -280,21 +287,9 @@ const char* htmlPage = R"rawliteral(
             color: var(--font-green);
             text-transform: capitalize;
         }
-        @media only screen and (max-width: 800px) {
-            #home{
-                flex-direction: column;
-            }
-            .container {
-                width: 300px;
-                margin-top: 100px;
-                margin-bottom: 0;
-            }
-            input[type="text"], input[type="password"], input[type="submit"] {
-                width: 100%;
-            }
-        }
         .footer {
-            bottom: 0;
+            position: absolute;
+            bottom: 0px;
             width: 100%;
             text-align: center;
             justify-content: center;
@@ -334,6 +329,27 @@ const char* htmlPage = R"rawliteral(
         .telegram-bot h1 {
             font-size: 16px;
             color: #27873D;
+        }
+
+        @media only screen and (max-width: 1000px) {
+            #home{
+                flex-direction: column;
+            }
+            .container {
+                width: 300px;
+                margin-top: 100px;
+                margin-bottom: 0;
+                display: flex;
+                flex-direction: column;
+
+            }
+            input[type="text"], input[type="password"], input[type="submit"] {
+                width: 100%;
+            }
+            .footer{
+                bottom: 0;
+                position: relative;
+            }
         }
         #aboyModal, 
         #savedCredentials, 
@@ -419,17 +435,6 @@ const char* htmlPage = R"rawliteral(
         <div class="container">
             <form id="dataForm">
                 <div>
-                    <h1>Set your MailTon</h1>
-                    <label for="mailtonkey">MailTon KEY*:</label><br>
-                    <input placeholder="Enter your MailTon KEY" type="password" id="mailtonkey" name="mailtonkey" required><br>
-                    <label for="Username">Username*:</label><br>
-                    <input type="text" placeholder="Enter your Username" id="username" name="username" required>
-                    <label for="user_password">Password*:</label><br>
-                    <input placeholder="Enter your password" type="password" id="user_password" name="user_password" required><br>
-                    <label for="token">Telegram Token: <small><i>(optional)</i></small></label><br>
-                    <input type="text" value="Enter your Telegram Token" placeholder="Enter your Telegram Token" id="token" name="token"><br><br>
-                </div>
-                <div>
                     <h1>Set your Wi-Fi</h1>
                     <label for="ssid">SSID*:</label><br>
                     <input type="text" placeholder="Enter SSID your WiFi" id="ssid" name="ssid" required>
@@ -438,6 +443,38 @@ const char* htmlPage = R"rawliteral(
                 </div>
                 <input type="submit" value="Save">
             </form>
+        </div>
+        <div class="container">
+            <form id="wifiForm">
+                <div>
+                    <h1>Set your MailTon</h1>
+                    <!--
+                    <label for="mailtonkey">MailTon KEY*:</label><br>
+                    <input placeholder="Enter your MailTon KEY" type="password" id="mailtonkey" name="mailtonkey" required><br>
+                    -->
+                    <label for="Username">Username*:</label><br>
+                    <input type="text" placeholder="Enter your Username" id="username" name="username" required>
+                    <label for="user_password">Password*:</label><br>
+                    <input placeholder="Enter your password" type="password" id="user_password" name="user_password" required><br>
+                    <label for="token">Telegram Token: <small><i>(optional)</i></small></label><br>
+                    <input type="text" value="Enter your Telegram Token" placeholder="Enter your Telegram Token" id="token" name="token"><br><br>
+                </div>
+                <input type="submit" value="Save">
+         </form>
+        </div>
+        <div class="container">
+            <form id="deviceForm">
+                <div>
+                    <h1>Add your CtrlMailBox</h1>
+                    <label for="ctrlmailboxkey">CtrlMailBox KEY*:</label><br>
+                    <input placeholder="Enter your CtrlMailBox KEY" type="password" id="ctrlmailboxkey" name="ctrlmailboxkey" required><br>
+                    <label for="ctrlmailboxname">CtrlMailBox Name*:</label><br>
+                    <input type="text" placeholder="Enter your CtrlMailBox Name" id="ctrlmailboxname" name="ctrlmailboxname" required>
+                    <label for="ctrlmailboxaddress">CtrlMailBox address*:</label><br>
+                    <input type="text" id="ctrlmailboxaddress" name="ctrlmailboxaddress" placeholder="0xABCD" pattern="0x[0-9A-Fa-f]{1,4}" required>
+                </div>
+                <input type="submit" value="Save">
+         </form>
         </div>
         <div class="telegram-bot">
             <h1>Connect with our Telegram Bot</h1>
@@ -500,6 +537,36 @@ const char* htmlPage = R"rawliteral(
             })
             .catch(error => console.error('Errore:', error));
         });
+        document.getElementById('wifiForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita il refresh della pagina
+
+            let formData = new FormData(this); 
+            
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(script => {
+                eval(script);
+            })
+            .catch(error => console.error('Errore:', error));
+        });
+        document.getElementById('deviceForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita il refresh della pagina
+
+            let formData = new FormData(this); 
+            
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(script => {
+                eval(script);
+            })
+            .catch(error => console.error('Errore:', error));
+        });
         function closeModalCredentials() {
             const modal1 = document.getElementById("savedCredentials");
             const modal2 = document.getElementById("ErrorCredentials");
@@ -536,6 +603,43 @@ void resetDevice() {
     ESP.restart();
 }
     
+bool saveCtrlMailBoxCredentials (const String &newCtrlMailBox_key, const String &newCtrlMailBox_name, uint16_t &newCtrlMailBox_address) {
+    preferences.begin("CtrlMailBox", false);
+    preferences.putString("CtrlMailBox_key", newCtrlMailBox_key);
+    preferences.putString("CtrlMailBox_name", newCtrlMailBox_name);
+    preferences.putUShort("CtrlMailBox_address", newCtrlMailBox_address);
+
+    preferences.end();
+
+    display->println("Saved Account credentials:");
+    display->println("CtrlMailBox key: " + newCtrlMailBox_key);
+    display->println("CtrlMailBox name: " + newCtrlMailBox_name);
+    display->println("CtrlMailBox address: " + newCtrlMailBox_address);
+    display->display();
+    return true;
+}
+
+// load CtrlMailBox data with Preferences
+bool loadCtrlMailBoxCredentials() {
+    preferences.begin("CtrlMailBox", true);
+    CTRLMAILBOX_KEY = preferences.getString("CtrlMailBox_key", "");
+    CTRLMAILBOX_NAME = preferences.getString("CtrlMailBox_name", "");
+    destination = preferences.getUShort("CtrlMailBox_address", 0);
+    preferences.end();
+
+    if (CTRLMAILBOX_KEY.isEmpty() || CTRLMAILBOX_NAME.isEmpty() || destination == 0) {
+        Serial.println("Account credentials don't find");
+        return false;
+    }
+
+    display->println("Account credentials loaded:");
+    display->println("CtrlMailBox key: " + CTRLMAILBOX_KEY);
+    display->println("CtrlMailBox name: " + CTRLMAILBOX_NAME); 
+    display->println("CtrlMailBox address: " + destination); 
+    display->display();
+    return true;
+}
+
 // save Account credentials with Preferences
 bool saveAccountCredentials(const String &newUsername, const String &newUser_password, const String &newTelegramToken) {
     preferences.begin("account", false);
@@ -569,6 +673,45 @@ bool loadAccountCredentials() {
     display->println("Username: " + username);
     display->println("Password: " + user_password); 
     display->println("Telegram Token: " + telegramToken); 
+    display->display();
+    return true;
+}
+
+// save the details of the chat for the Telegram Bot
+bool saveChatDetails(const String &newChatID, const String &newUsername) {
+    savedChatID = newChatID;
+    savedUsername = newUsername;
+    Preferences preferences;
+    // Namespace "telegram" to save the chat_id and username
+    preferences.begin("telegram", false); // false -> for read/write mode
+    preferences.putString("chat_id", newChatID);
+    preferences.putString("username", newUsername);
+    preferences.end();
+
+    display->println("Chat ID salvato:");
+    display->println(newChatID);
+    display->println("Username salvato:");
+    display->println(newUsername);
+    display->display();
+    return true;
+}
+
+// load the details of the chat for the Telegram Bot
+bool loadChatDetails() {
+    Preferences preferences;
+    preferences.begin("telegram", true);  // true -> reading only
+    savedChatID = preferences.getString("chat_id", "");
+    savedUsername = preferences.getString("username", "");
+    preferences.end();
+
+    // chatID not found
+    if (savedChatID.isEmpty()) 
+        return false;
+    
+    display->println("Chat ID loaded:");
+    display->println(savedChatID);
+    display->println("Username loaded:");
+    display->println(savedUsername);
     display->display();
     return true;
 }
@@ -617,40 +760,74 @@ void handleRoot(AsyncWebServerRequest *request) {
 
 // Callback to manage the form
 void handleSave(AsyncWebServerRequest *request) {
-    if(request->hasParam("mailtonkey", true) && request->hasParam("username", true) && request->hasParam("user_password", true) && request->hasParam("token", true) && request->hasParam("ssid", true) && request->hasParam("password", true) ) {
-        String MailTonKEY = request->getParam("mailtonkey", true)->value();
-
-        if (MailTonKEY == MAILTON_KEY){
-            username = request->getParam("username", true)->value();
-            user_password = request->getParam("user_password", true)->value();
-            telegramToken = request->getParam("token", true)->value();
-            ssid = request->getParam("ssid", true)->value();
-            password = request->getParam("password", true)->value();
-            
-            // use preferences to save
-            if (saveWiFiCredentials(ssid, password) && saveAccountCredentials(username, user_password, telegramToken)) {
-                request->send(200, "text", "document.getElementById('savedCredentials').style.display='block';");
-            } else {
-                request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
-            }        
-            
-            // after saving the credentials, changes to ap_sta modes
-            display->println("Dati Salvati");
-            display->println("SSID: " + ssid);
-            display->println("Password: " + password);
-            display->println("Username: " + username);
-            display->println("Password: " + user_password); 
-            display->println("Telegram Token: " + telegramToken); 
-            display->display();
-            delay(2000);
-            configureWiFi(WIFI_AP_STA);
-        }
-        else {
+    if(request->hasParam("ssid", true) && request->hasParam("password", true)) {
+        ssid = request->getParam("ssid", true)->value();
+        password = request->getParam("password", true)->value();
+        
+        // use preferences to save
+        if (saveWiFiCredentials(ssid, password)) {
+            request->send(200, "text", "document.getElementById('savedCredentials').style.display='block';");
+        } else {
             request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
+        }        
+        
+        // after saving the credentials, changes to ap_sta modes
+        display->println("Saved WiFi data");
+        display->println("SSID: " + ssid);
+        display->println("Password: " + password);
+        display->display();
+        delay(2000);
+        configureWiFi(WIFI_AP_STA);
+
+    } else if(request->hasParam("username", true) && request->hasParam("user_password", true) && request->hasParam("token", true)) {
+        username = request->getParam("username", true)->value();
+        user_password = request->getParam("user_password", true)->value();
+        telegramToken = request->getParam("token", true)->value();
+        
+        // use preferences to save
+        if (saveAccountCredentials(username, user_password, telegramToken)) {
+            request->send(200, "text", "document.getElementById('savedCredentials').style.display='block';");
+        } else {
+            request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
+        }        
+        
+        // after saving the credentials, changes to ap_sta modes
+        display->println("Saved MailTon data");
+        display->println("Username: " + username);
+        display->println("Password: " + user_password); 
+        display->println("Telegram Token: " + telegramToken); 
+        display->display();
+        delay(2000);
+        
+    } else if(request->hasParam("ctrlmailboxkey", true) && request->hasParam("ctrlmailboxname", true)  && request->hasParam("ctrlmailboxaddress", true)) {
+        CTRLMAILBOX_KEY = request->getParam("ctrlmailboxkey", true)->value();
+        CTRLMAILBOX_NAME = request->getParam("ctrlmailboxname", true)->value();
+        String inputAddress = request->getParam("ctrlmailboxaddress", true)->value();
+        
+        if (inputAddress.startsWith("0x") || inputAddress.startsWith("0X")) {
+            destination = strtol(inputAddress.c_str(), NULL, 16);  // Converte da stringa esadecimale a uint16_t
+        } else {
+            destination = inputAddress.toInt();  // Prova a convertirlo in decimale
         }
+
+        // use preferences to save
+        if (saveCtrlMailBoxCredentials(CTRLMAILBOX_KEY, CTRLMAILBOX_NAME, destination)) {
+            request->send(200, "text", "document.getElementById('savedCredentials').style.display='block';");
+        } else {
+            request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
+        }        
+        
+        // after saving the credentials, changes to ap_sta modes
+        display->println("Saved CtrlMailBox data");
+        display->println("CtrlMailBox key: " + CTRLMAILBOX_KEY);
+        display->println("CtrlMailBox name: " + CTRLMAILBOX_NAME); 
+        display->println("CtrlMailBox address: " + inputAddress); 
+        display->display();
+        delay(2000);
+
     } else {
         request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
-    }   
+    }
 }  
 
 
@@ -723,45 +900,6 @@ void configureWiFi(wifi_mode_t mode) {
             }
             break;
     }
-}
-
-// save the details of the chat for the Telegram Bot
-bool saveChatDetails(const String &newChatID, const String &newUsername) {
-    savedChatID = newChatID;
-    savedUsername = newUsername;
-    Preferences preferences;
-    // Namespace "telegram" to save the chat_id and username
-    preferences.begin("telegram", false); // false -> for read/write mode
-    preferences.putString("chat_id", newChatID);
-    preferences.putString("username", newUsername);
-    preferences.end();
-
-    display->println("Chat ID salvato:");
-    display->println(newChatID);
-    display->println("Username salvato:");
-    display->println(newUsername);
-    display->display();
-    return true;
-}
-
-// load the details of the chat for the Telegram Bot
-bool loadChatDetails() {
-    Preferences preferences;
-    preferences.begin("telegram", true);  // true -> reading only
-    savedChatID = preferences.getString("chat_id", "");
-    savedUsername = preferences.getString("username", "");
-    preferences.end();
-
-    // chatID not found
-    if (savedChatID.isEmpty()) 
-        return false;
-    
-    display->println("Chat ID loaded:");
-    display->println(savedChatID);
-    display->println("Username loaded:");
-    display->println(savedUsername);
-    display->display();
-    return true;
 }
 
 /**
@@ -903,7 +1041,6 @@ void handleNewMessages(telegramMessage m) {
     }
 }
 
-
 /**
  * @brief Manager to send messages to the bot 
  * in relation to the messages received with LoRa
@@ -915,6 +1052,7 @@ void handlerSendMessage() {
     if(bot_active){
         if (lora_msg == "Mailbox Opened") {
             bot.sendMessage(chat_id, "📬 Mailbox Opened, someone is already withdrawing the mail 📭");
+            digitalWrite(LED_YELLOW, LOW);
             display->println("Send to bot: Mailbox Opened");
             display->display();
         }else if (lora_msg == "New Mail"){
@@ -922,6 +1060,7 @@ void handlerSendMessage() {
             if(mFlag) bot.sendMessage(chat_id, "🔔 Lino the Postino warned me that there is placed in the mailbox! 📬");
             else bot.sendMessage(chat_id, "🔔 PostaLino warned me that there is placed in the mailbox! 📬");
             mFlag = !mFlag;
+            digitalWrite(LED_YELLOW, HIGH);
             display->println("Send to bot: mail in the mailbox!");
             display->display();
         } else {
@@ -946,12 +1085,20 @@ void SendRestartMessageBot(){
     handleNewMessages(restartMsg);
 }
 
-// Function to receive messages Lora
+// function to extract values ​​from a "key = value" string
+String extractValue(String message, String key) {
+    int startIndex = message.indexOf(key + "=");
+    if (startIndex == -1) return "";
+    startIndex += key.length() + 1;
+    int endIndex = message.indexOf(";", startIndex);
+    if (endIndex == -1) endIndex = message.length();
+    return message.substring(startIndex, endIndex);
+}
+
+// function to receive messages Lora
 void onLoRaReceive(int packetSize) {
     lora_priority = true;
-    // if there's no packet, return
-    if (packetSize == 0)
-        return; 
+    if (packetSize == 0) return;
 
     // read packet header bytes:
     uint16_t recipient = lora->read();  // recipient address
@@ -962,21 +1109,41 @@ void onLoRaReceive(int packetSize) {
 
     String incoming = ""; // payload of packet
 
-    while (lora->available()){          // can't use readString() in callback, so
+    while (lora->available()) {          // can't use readString() in callback, so
         incoming += (char)lora->read(); // add bytes one by one
     }
-    
+
     byte calculatedChecksum = 0;
     for (int i = 0; i < incoming.length(); i++) {
         calculatedChecksum ^= incoming[i];
     }
-    
-    if (incomingLength != incoming.length() || receivedChecksum != calculatedChecksum){ 
+
+    if (incomingLength != incoming.length() || receivedChecksum != calculatedChecksum) { 
         display->clearDisplay();
         display->setCursor(0,0);
-        display->println("error: message length or checksum does not match");
+        display->println("Error: checksum mismatch");
         loraFlagError = true;
         digitalWrite(LED_RED, HIGH);
+        return;
+    }
+
+    // Estrai nome, key e dati
+    String senderName = extractValue(incoming, "NAME");
+    String senderKey = extractValue(incoming, "CTRLMAILBOX_KEY");
+    String receiverKey = extractValue(incoming, "MAILTON_KEY");
+    String data = extractValue(incoming, "DATA");
+
+    // Controllo autenticazione
+    //Preferences preferences;
+    //preferences.begin("account", true);
+    //String expectedSenderKey = preferences.getString("CTRLMAILBOX_KEY", "");
+    //preferences.end();
+    String expectedSenderName = CTRLMAILBOX_NAME; // todo da salvare in prefereces
+    String expectedSenderKey = CTRLMAILBOX_KEY; // todo da salvare in prefereces
+    String expectedReceiverKey = MAILTON_KEY;
+
+    if (senderName != expectedSenderName || senderKey != expectedSenderKey || receiverKey != expectedReceiverKey) {
+        Serial.println("Messaggio NON autenticato! Ignorato.");
         return;
     }
 
@@ -987,19 +1154,18 @@ void onLoRaReceive(int packetSize) {
     display->printf("Sent to: %04X\n", recipient);
     display->printf("Message ID: %d\n", incomingMsgId);
     display->printf("Count: %d\n", count);
-    display->printf("Message length: %d\n", incomingLength);
-    display->printf("Message: %s\n", incoming.c_str());
+    display->printf("Name: %s\n", senderName.c_str());
+    display->printf("Message: %s\n", data.c_str());
     display->printf("RSSI: %d\n", lora->packetRssi());
     display->printf("Snr: %02f\n", lora->packetSnr());
     
     lora->receive();
 
     if(!loraFlagError){    
-        lora_msg = incoming.c_str();
+        lora_msg = data.c_str();
     }
 
     loraFlagReceived = true;
-
     lora_priority = false;
 }
 
@@ -1008,22 +1174,34 @@ void onLoRaSend(){
 }
 
 // send message LoRa (without interrupt)
-void sendMessageLoRa(const String &loraSendMsg){
+void sendMessageLoRa(const String &loraSendMsg) {
     digitalWrite(LED_RED, HIGH);
-    String msg = loraSendMsg;
+      
+    //Preferences preferences;
+    //preferences.begin("lora", true);
+    String senderName = CTRLMAILBOX_NAME;
+    String senderKey = MAILTON_KEY;
+    String receiverKey = CTRLMAILBOX_KEY;
+
+    //String senderKey = preferences.getString("MAILTON_KEY", "");  
+    //preferences.end();
+
+    // Componi il messaggio nel formato: NAME=XYZ;KEY=ABC;DATA=Messaggio
+    String messageToSend = "NAME=" + senderName + ";CTRLMAILBOX_KEY=" + receiverKey  + ";MAILTON_KEY=" + senderKey + ";DATA=" + loraSendMsg;
+
     lora->beginPacket();
 
-    lora->write(destination);  // add destination address
-    lora->write(localAddress); // add sender address
-    lora->write(count_sent);   // add message ID
-    lora->write(msg.length()); // add payload length
-    
+    lora->write(destination);              // add destination address
+    lora->write(localAddress);             // add sender address
+    lora->write(count_sent);               // add message ID
+    lora->write(messageToSend.length());   // add payload length
+
     byte checksum = 0;
-    for (int i = 0; i < msg.length(); i++) {
-        checksum ^= msg[i];
+    for (int i = 0; i < messageToSend.length(); i++) {
+        checksum ^= messageToSend[i];
     }
     lora->write(checksum); // add checksum
-    lora->print(msg); // add payload
+    lora->print(messageToSend); // add payload
 
     lora->endPacket(true); // true=>async, non-blocking mode
     count_sent++;
@@ -1223,7 +1401,8 @@ void setup() {
         display->printf(F("LoRa Error"));
     }
     display->display();
-    
+    loadCtrlMailBoxCredentials(); // load Key, name and address of the CtrlMailBox
+
     delay(2000);
 
     pinMode(LED_RED, OUTPUT);
