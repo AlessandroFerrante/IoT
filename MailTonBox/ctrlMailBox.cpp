@@ -15,16 +15,19 @@
 #define ROTARY_CLK D6  // Pin del rotary encoder (Clock)
 #define ROTARY_DT D8   // Pin del rotary encoder (Data)
 
-#define SERVO_PIN D9 // Pin di controllo del servo
+#define SERVO_PIN A6 // Pin di controllo del servo
+
+String CTRLMAILBOX_KEY = "VSJ5KNVS903NJ7N12NN";
+String CTRLMAILBOX_NAME = "CMBX1";
+String MAILTON_KEY = "00BKFWR39FN48FN40GM30DM69GJ";
 
 bool loraFlagReceived = false;
-bool loraFlagError = false;
 int count = 0;
 int count_sent = 0;
 bool displayNeedUpdate = false;
 
 // for LoRa communication
-uint16_t localAddress = 0xFF; 
+uint16_t localAddress = 0x01; 
 uint16_t destination = 0x02;       
 int theshold = 2;
 bool mail_detected = false;
@@ -40,7 +43,6 @@ float cm;
 int initial_distance = 0;
 int distance = 0;
 int distance_update = 15;
-
 
 // Rotary encoder
 bool mailbox_open = false;
@@ -66,11 +68,12 @@ void IRAM_ATTR rotaryChanged() {
     wait_rotary = false;
 }
 
-// Funzione per generare il segnale PWM per il servo
+// funzione per generare il segnale PWM per il servo
 void writeServo(int angle) {
     wait_servo = true;
-    int pulseWidth = map(angle, 0, 180, 1000, 2000); // Mappa l'angolo in un intervallo di larghezza dell'impulso
-
+    // per mappare l'angolo in un intervallo di larghezza dell'impulso
+    int pulseWidth = map(angle, 0, 180, 1000, 2000); 
+    
     // Genera il segnale PWM manualmente
     digitalWrite(SERVO_PIN, HIGH);
     delayMicroseconds(pulseWidth);  // Impulso di larghezza variabile
@@ -86,6 +89,17 @@ bool isAckMessage(const String& message) {
     return message == "ACK";
 }
 
+// function to extract values ​​from a "key = value" string
+String extractValue(String message, String key) {
+    int startIndex = message.indexOf(key + "=");
+    if (startIndex == -1) return "";
+    startIndex += key.length() + 1;
+    int endIndex = message.indexOf(";", startIndex);
+    if (endIndex == -1) endIndex = message.length();
+    return message.substring(startIndex, endIndex);
+}
+
+// function to receive messages Lora
 void onLoRaReceive(int packetSize) {
     // if there's no packet, return
     if (packetSize == 0)
@@ -110,11 +124,30 @@ void onLoRaReceive(int packetSize) {
     }
     
     // receivedChecksum != calculatedChecksum 
-    if (incomingLength != incoming.length()){ 
+    if (incomingLength != incoming.length() || receivedChecksum != calculatedChecksum){ 
         display->clearDisplay();
         display->setCursor(0,0);
         display->println("error: message length or checksum does not match");
-        // loraFlagError = true;
+        return;
+    }
+
+    // extract name, key and data
+    String senderName = extractValue(incoming, "NAME");
+    String senderKey = extractValue(incoming, "MAILTON_KEY");
+    String receiverKey = extractValue(incoming, "CTRLMAILBOX_KEY");
+    String data = extractValue(incoming, "DATA");
+
+    // Controllo autenticazione
+    //Preferences preferences;
+    //preferences.begin("configuration", true);
+    //String expectedSenderKey = preferences.getString("CTRLMAILBOX_KEY", "");
+    //preferences.end();
+    String expectedSenderKey = MAILTON_KEY; // todo da salvare in prefereces
+    String expectedReceiverKey = CTRLMAILBOX_KEY;
+
+    if (senderKey != expectedSenderKey || receiverKey != expectedReceiverKey) {
+        Serial.println("Messaggio NON autenticato! Ignorato.");
+        return;
     }
     
     count++;
@@ -125,36 +158,48 @@ void onLoRaReceive(int packetSize) {
     display->printf("Message ID: %d\n", incomingMsgId);
     display->printf("Count: %d\n", count);
     display->printf("Message length: %d\n", incomingLength);
-    display->printf("Message: %s\n", incoming.c_str());
+    display->printf("Message: %s\n", data.c_str());
     display->printf("RSSI: %d\n", lora->packetRssi());
     display->printf("Snr: %02f\n", lora->packetSnr());
     
     lora->receive();
-    last_message_received = incoming.c_str();
-    loraFlagReceived = true; // Imposta il flag di ricezione se non è un ACK
-
+    last_message_received = data.c_str();
+    loraFlagReceived = true; // set the reception flag
 }
 
 void onLoRaSend() {
 }
 
-void sendMessageLoRa(){
+void sendMessageLoRa() {
     lora_priority = true;
     digitalWrite(LED_GREEN, HIGH);
     last_lora_msg = lora_msg;
+    
+    //Preferences preferences;
+    //preferences.begin("lora", true);
+    String senderName = CTRLMAILBOX_NAME;
+    String senderKey = CTRLMAILBOX_KEY;
+    String receiverKey = MAILTON_KEY;
+
+    //String senderKey = preferences.getString("MAILTON_KEY", "");  
+    //preferences.end();
+
+    // Componi il messaggio nel formato: NAME=XYZ;KEY=ABC;DATA=Messaggio
+    String messageToSend = "NAME=" + senderName + ";CTRLMAILBOX_KEY=" + senderKey + ";MAILTON_KEY=" + receiverKey + ";DATA=" + lora_msg;
+
     lora->beginPacket();
 
     lora->write(destination);              // add destination address
     lora->write(localAddress);             // add sender address
     lora->write(count_sent);               // add message ID
-    lora->write(lora_msg.length());        // add payload length
-    
+    lora->write(messageToSend.length());   // add payload length
+
     byte checksum = 0;
-    for (int i = 0; i < lora_msg.length(); i++) {
-        checksum ^= lora_msg[i];
+    for (int i = 0; i < messageToSend.length(); i++) {
+        checksum ^= messageToSend[i];
     }
     lora->write(checksum); // add checksum
-    lora->print(lora_msg); // add payload
+    lora->print(messageToSend); // add payload
 
     lora->endPacket(true); // true = async / non-blocking mode
     delay(100);
@@ -170,9 +215,14 @@ void sendMessageLoRa(){
     lora_priority = false;
 }
 
+
 void onBtn1Released(uint8_t pinBtn){
     lora_msg = "AAAAAAAA";
     sendMessageLoRa();
+}
+
+void onBtn2Released(uint8_t pinBtn){
+    mailbox_open = !mailbox_open;
 }
 
 int measuresDistance() {
@@ -224,12 +274,12 @@ void setup() {
     display->display();
 
     buttons->onBtn1Release(onBtn1Released);
+    buttons->onBtn2Release(onBtn2Released);
 
     pinMode(ROTARY_CLK, INPUT_PULLUP);
     pinMode(ROTARY_DT, INPUT_PULLUP);
-    //pinMode(ROTARY_SW, INPUT_PULLUP);
-    pinMode(SERVO_PIN, OUTPUT);
     attachInterrupt(digitalPinToInterrupt(ROTARY_CLK), rotaryChanged, CHANGE);
+    pinMode(SERVO_PIN, OUTPUT);
 
     pinMode(TRIG, OUTPUT);
     pinMode(ECHO, INPUT);
@@ -336,10 +386,6 @@ void loop() {
         delay(1000);
     }
 
-    if (loraFlagError){
-        loraFlagError = false;
-        display->display();
-    }
     
     /*if (rotationCount >= CLOSE_THRESHOLD-5) {
         writeServo(90);
