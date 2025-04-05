@@ -1,0 +1,42 @@
+{
+    "lang": "en",
+    "name": "MailTonBox app",
+    "short_name": "MailTonBox",
+    "description": "",
+    "start_url": "/",
+    "background_color": "#032D32",
+    "theme_color": "#032D32",
+    "orientation": "any",
+    "display": "standalone",
+    "icons": [
+        {
+            "src": "/image/icon.png",
+            "type": "image/png"
+        },
+        {
+            "src": "/image/icon2.png",
+            "type": "image/png"
+        },
+        {
+            "src": "/image/icon.ico",
+            "type": "image/ico"
+        },
+        {
+            "src": "/image/icon2.ico",
+            "type": "image/ico"
+        },
+        {
+            "src": "/image/wallpaper.png",
+            "type": "image/png"
+        },
+        {
+            "src": "/image/wallpaper2.png",
+            "type": "image/png"
+        },
+        {
+            "src": "/image/LogoWhite.svg",
+            "type": "image/svg+xml"
+        }
+    ]
+
+}
