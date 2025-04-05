@@ -2,7 +2,7 @@ window.onload = async function () {
   const modal = document.getElementById("loading");
   const modal2 = document.getElementById("myModal2");
   const retryButton = document.getElementById("retryButton");
-  const openBtn = document.getElementById("openBtn");
+  const showIstruction = document.getElementById("showIstruction");
 
   function showModal() {
     modal.style.display = "flex";
@@ -18,35 +18,42 @@ window.onload = async function () {
   }
 
   showModal();
+  
+  showIstruction.onclick = function () {
+    clearTimeout(fallbackTimeout);
+    hideModals();
+    showModal2();
+  };
 
   const fallbackTimeout = setTimeout(() => {
     hideModals();
     showModal2();
   }, 5000); // 5s
-
+  
   retryButton.onclick = function () {
     clearTimeout(fallbackTimeout);
     hideModals();
     showModal();
-  };
 
-  openBtn.onclick = function () {
-    clearTimeout(fallbackTimeout);
-    window.open("http://192.168.4.1", "_blank");
+    // Restart the fallback timeout
+    fallbackTimeout = setTimeout(() => {
+      hideModals();
+      showModal2();
+    }, 5000); // 5s
   };
 
   function openFullscreen() {
     const elem = document.documentElement;
     if (elem.requestFullscreen) {
       elem.requestFullscreen();
-    } else if (elem.mozRequestFullScreen) { // Firefox
+    } else if (elem.mozRequestFullScreen) { 
       elem.mozRequestFullScreen();
-    } else if (elem.webkitRequestFullscreen) { // Chrome, Safari and Opera
+    } else if (elem.webkitRequestFullscreen) { 
       elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) { // IE/Edge
+    } else if (elem.msRequestFullscreen) { 
       elem.msRequestFullscreen();
     }
   }
   
-  openFullscreen();  // Chiamato quando necessario
+  openFullscreen(); 
 };
