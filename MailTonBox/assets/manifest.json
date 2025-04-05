@@ -1,42 +1,30 @@
 {
-    "lang": "en",
-    "name": "MailTonBox app",
+    "name": "MailTonBox",
     "short_name": "MailTonBox",
-    "description": "",
+    "description": "Connect and configure your MailTonBox device easily from your browser.",
     "start_url": "/",
-    "background_color": "#032D32",
-    "theme_color": "#032D32",
-    "orientation": "any",
+    "scope": "/",
     "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#032D32",
+    "orientation": "portrait",
     "icons": [
-        {
-            "src": "/image/icon.png",
-            "type": "image/png"
-        },
-        {
-            "src": "/image/icon2.png",
-            "type": "image/png"
-        },
-        {
-            "src": "/image/icon.ico",
-            "type": "image/ico"
-        },
-        {
-            "src": "/image/icon2.ico",
-            "type": "image/ico"
-        },
-        {
-            "src": "/image/wallpaper.png",
-            "type": "image/png"
-        },
-        {
-            "src": "/image/wallpaper2.png",
-            "type": "image/png"
-        },
-        {
-            "src": "/image/LogoWhite.svg",
-            "type": "image/svg+xml"
-        }
+      {
+        "src": "./assets/images/icon2.png",
+        "sizes": "192x192",
+        "type": "image/png"
+      },
+      {
+        "src": "./assets/images/icon2.png",
+        "sizes": "512x512",
+        "type": "image/png"
+      },
+      {
+        "src": "./assets/images/icon2.png",
+        "sizes": "180x180",
+        "type": "image/png",
+        "purpose": "any maskable"
+      }
     ]
-
-}
+y}
+  
