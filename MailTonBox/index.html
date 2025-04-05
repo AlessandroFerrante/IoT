@@ -10,30 +10,28 @@
     <link rel="apple-touch-icon" sizes="152x152" href="./assets/images/icon2.png" />
     <link rel="apple-touch-icon" sizes="167x167" href="./assets/images/icon2.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="./assets/images/icon2.png" />
-    <link data-default-icon="./icon2.ico" rel="shortcut icon" type="image/x-icon" href="./assets/images/icon2.ico" />
+    <link data-default-icon=".assets/images/icon2.ico" rel="shortcut icon" type="image/x-icon" href="./assets/images/icon2.ico" />
     <link type="text/css" href="./assets/css/style.css" rel="stylesheet">
     <title>MailTonBox</title>
 </head>
 <body>
-    <iframe id="myIframe" src="http://192.168.4.1"></iframe>
-     <div class="loading" id="loading">
-        <div class="loading-container">
-            <img src="./assets//images/icon2.png" class="logoapp" alt="">
-            <div id="console">
-                <p>Waiting for the connection to the device...</p>
-            </div>
-            <div class="loader-container">  
-                <div class="loader" id="loader"></div>
-            </div>  
-            <div class="logoloader" alt=""> </div>
-            <div class="msg">LOADING</div>
+    <div class="loading" id="loading">
+    <div class="loading-container">
+        <img src="assets/images/icon2.png" class="logoapp" alt="">
+        <div id="console">
+            <p>Connection to the device...</p>
         </div>
-      </div>
+        <div class="loader-container">  
+            <div class="loader" id="loader"></div>
+        </div>  
+        <div class="logoloader" alt=""> </div>
+        <div class="msg"><a href="http://192.168.4.1">OPEN configuration</a></div>
+    </div>
+    </div>
     <div id="myModal2" class="modal">
         <div class="modal-content">
             <div class="explanation">
-                <h1 style="color: #00a9b9;">Search completed</h1>
-                <h2 style="color: #6d2020;">No device found</h2>
+                <h1 style="color: #00a9b9;">Instruction</h1>
                 <p>Make sure you are properly connected to the device's Wi-Fi network using your smartphone, tablet, or PC.</p>
                 <ol>
                     <li><strong>Turn on the Arduino device</strong><br>Ensure that the device is properly powered and switched on.</li>
@@ -41,10 +39,13 @@
                     <li><strong>Select the device's Wi-Fi network</strong><br>Select the network named <code>MailTonAP</code> or <code>CtrlMailBoxAP</code>, depending on the model to be configured.</li>
                     <li><strong>Enter the password</strong><br>The password is provided in the <em>instruction manual</em> included with the device.</li>
                     <li><strong>Wait for the connection</strong><br>It is normal to see the message "no internet access".</li>
-                    <li><strong>Repeat the search</strong><br>Once connected, you can restart the search using the button below. Alternatively, open your browser and enter <a href="http://192.168.4.1"><code>192.168.4.1</code></a> to access the configuration page.</li>
+                    <li><strong>Open configuration</strong><br>Once connected, open the configuration with using the button below. Alternatively, open your browser and enter <a href="http://192.168.4.1"><code>192.168.4.1</code></a> to access the configuration page.</li>
                 </ol>
-            </div>            
-            <button id="retryButton" class="retryButton" >Device research </button>
+            </div>   
+            <div class="btns">
+                <button class="retryButton" id="openBtn"> Open configuration </button>
+                <button id="retryButton" class="retryButton" >BACK</button>    
+            </div>         
         </div>
     </div>
     <script type="text/javascript" src="assets/js/main.js"></script>

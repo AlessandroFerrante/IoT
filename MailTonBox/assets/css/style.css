@@ -1,5 +1,5 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,700;1,700&display=swap');
-:root{
+/*@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,700;1,700&display=swap');
+*/:root{
     --font-green: #1A6167;
     --background-neumorphism: #032D32;/* #0d3d2a*/
     --first-gradient: #032D32;
@@ -78,10 +78,19 @@ iframe {
     color: #007bff;
     text-decoration: none;
 }
-
-.retryButton {
+.btns {
     margin-top: 10px;
-    color: #007bffb4;
+    display: flex;
+    flex-direction: row;
+    gap: 20px;
+}
+.retryButton {
+    margin-top: 15px;
+    color: whitesmoke;
+    font-family: monospace;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 2vh;
     font-size: 18px;
     font-weight: bold;
     cursor: pointer;
@@ -285,23 +294,38 @@ iframe {
     margin-top: 0; /* Removed negative margin */
     text-align: center;
     min-width: 100px;
-    animation-name: blink;
-    animation-duration: 0.00ms;
+    animation-name: push;
+    animation-duration: 1.5s;
     animation-iteration-count: infinite;
-    animation-direction: alternate;
-    animation-timing-function: linear;
-    box-shadow: -6px -6px 8px var(--up-box),
-        6px 6px 8px var(--down-box),
-        inset -2px -2px 4px var(--up-box),
-        inset 2px 2px 4px var(--down-box);
     border: 3px solid var(--second-gradient);
 }
-
-@keyframes blink {
-0% {
-    opacity: 0.8;
+.msg:hover{
+    animation: none;
+    box-shadow: -6px -6px 8px var(--up-box),
+                6px 6px 8px var(--down-box),
+                inset -2px -2px 4px var(--up-box),
+                inset 2px 2px 4px var(--down-box);
 }
-100% {
-    opacity: 1;
+.msg a {
+    text-decoration: none;
+    color: whitesmoke;
 }
+@keyframes push {
+    0% {
+        box-shadow: -6px -6px 8px var(--up-box),
+                    6px 6px 8px var(--down-box);
+        background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
+    }
+    50% {
+        box-shadow: -4px -4px 6px var(--up-box),
+                    4px 4px 6px var(--down-box),
+                    inset -2px -2px 4px var(--up-box),
+                    inset 2px 2px 4px var(--down-box);
+        background: linear-gradient(315deg, var(--second-gradient), var(--first-gradient));
+    }
+    100% {
+        box-shadow: -6px -6px 8px var(--up-box),
+                    6px 6px 8px var(--down-box);
+        background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
+    }
 }
