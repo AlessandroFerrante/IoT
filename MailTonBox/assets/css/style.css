@@ -1,5 +1,5 @@
-/*@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,700;1,700&display=swap');
-*/:root{
+@import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,700;1,700&display=swap');
+:root{
     --font-green: #1A6167;
     --background-neumorphism: #032D32;/* #0d3d2a*/
     --first-gradient: #032D32;
@@ -30,6 +30,41 @@ iframe {
     height: 100%;
     border: none;
     background-color: var(--background-neumorphism);
+}
+#install{
+    z-index: 999999999999;
+}
+.install-content .logoapp{
+    position: fixed;
+    top: 30%;
+}
+.install-btn{
+    color: #fff;
+    font-weight: bold;
+    font-family: Poppins;
+    text-align: center;
+    font-size: 17px;
+    position: fixed; 
+    min-width: 100px;
+    padding: 12px 15px;
+    border-radius: 50px;
+    top: 60%;
+    left: 50%;
+    transform: translateX(-50%);
+    -webkit-transform: translateX(-50%);
+    background-color: var(--background-neumorphism);
+    border: 3px solid var(--second-gradient);
+    animation-name: push;
+    animation-duration: 1.5s;
+    animation-iteration-count: infinite;
+}
+.install-btn:hover{
+    animation: none;
+    box-shadow: -6px -6px 8px var(--up-box),
+                6px 6px 8px var(--down-box),
+                inset -2px -2px 4px var(--up-box),
+                inset 2px 2px 4px var(--down-box);
+
 }
 .modal {
     display: none; 
@@ -93,7 +128,7 @@ iframe {
     font-family: monospace;
     font-weight: bold;
     text-transform: uppercase;
-    font-size: 17px;
+    font-size: 15px;
     font-weight: bold;
     cursor: pointer;
     background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
@@ -315,7 +350,7 @@ iframe {
     font-family: monospace;
     font-weight: bold;
     text-transform: uppercase;
-    font-size: 17px;
+    font-size: 16px;
     padding-top: 2vh;
     color: #fff;
     padding: 12px 15px;
