@@ -130,6 +130,16 @@ String CTRLMAILBOX_NAME = ""; // CMBX1
 String CTRLMAILBOX_KEY = ""; // VSJ5KNVS903N
 bool deviceInfo = false;
 
+const size_t MAX_CTRLMBOX_DEVICES = 10;
+String CTRLMAILBOX_KEYS[MAX_CTRLMBOX_DEVICES];
+String CTRLMAILBOX_NAMES[MAX_CTRLMBOX_DEVICES];
+uint16_t ctrlMailBoxAddresses[MAX_CTRLMBOX_DEVICES];
+unsigned int devicesCounter = 0;
+// Variabili globali per ACK/NACK
+String pendingReplyMessage = "";
+uint16_t pendingReplyAddress = 0;
+bool loraAckPending = false;
+
 void resetDevice() {
     // opens all preferences to delete them
     preferences.begin("wifi", false);
@@ -148,56 +158,145 @@ void resetDevice() {
     preferences.clear();  
     preferences.end();
 
-    preferences.begin("ctrlmailbox", false);
+    preferences.begin("devices", false);
     preferences.clear();
     preferences.end();
 
-    display->println("Total reset: all configurations have been deleted!");
+    display->println("Total reset: all configurations have been deleted! =^.^=");
     display->display();
     
     // restart the device
     ESP.restart();
 }
-    
-bool saveCtrlMailBoxCredentials (const String &newCtrlMailBox_key, const String &newCtrlMailBox_name,const uint16_t &newCtrlMailBox_address) {
-    preferences.begin("ctrlmailbox", false);
-    preferences.putString("ctrlmailboxkey", newCtrlMailBox_key);
-    preferences.putString("ctrlmailboxname", newCtrlMailBox_name);
-    preferences.putUShort("ctrlmailboxaddr", newCtrlMailBox_address);
-    preferences.end();
 
-    display->println("Saved CtrlMailBox credentials:");
-    display->println("CtrlMailBox key: " + newCtrlMailBox_key);
-    display->println("CtrlMailBox name: " + newCtrlMailBox_name);
-    display->println("CtrlMailBox address: " + newCtrlMailBox_address);
-    display->display();
-    return true;
+struct CtrlMailboxInfo {
+    String name;
+    String key;
+};
+
+CtrlMailboxInfo getCtrlMailboxInfoByAddress(const uint16_t &address) {
+    for (int i = 0; i < MAX_CTRLMBOX_DEVICES; i++) {
+        if ((uint16_t)ctrlMailBoxAddresses[i] == (uint16_t)address) {
+            return { CTRLMAILBOX_NAMES[i], CTRLMAILBOX_KEYS[i] };
+        }
+    }
+    return {"UNKNOWN=^.^=", "UNKNOWN=^.^="};
 }
 
 // load CtrlMailBox data with Preferences
 bool loadCtrlMailBoxCredentials() {
-    preferences.begin("ctrlmailbox", true);
-    CTRLMAILBOX_KEY = preferences.getString("ctrlmailboxkey", "");
-    CTRLMAILBOX_NAME = preferences.getString("ctrlmailboxname", "");
-    ctrlmbAddress = preferences.getUShort("ctrlmailboxaddr", 0);
+    preferences.begin("devices", true);
+    bool found = false;
+    devicesCounter = preferences.getUInt("devicesCounter", 0);
+
+    for (size_t i = 0; i < MAX_CTRLMBOX_DEVICES; i++) {
+        CTRLMAILBOX_KEYS[i] = preferences.getString(("cmbkey" + String(i)).c_str(), "");
+        CTRLMAILBOX_NAMES[i] = preferences.getString(("cmbname" + String(i)).c_str(), "");
+        ctrlMailBoxAddresses[i] = preferences.getUShort(("cmbaddr" + String(i)).c_str(), 0);
+
+        // Verifica che i dati siano stati letti correttamente
+        Serial.print("Loaded CMB =^.^=");
+        Serial.print(i);
+        Serial.print(": Key = ");
+        Serial.print(CTRLMAILBOX_KEYS[i]);
+        Serial.print(", Name = ");
+        Serial.print(CTRLMAILBOX_NAMES[i]);
+        Serial.print(", Addr = ");
+        Serial.println(ctrlMailBoxAddresses[i]);
+
+        if (!CTRLMAILBOX_KEYS[i].isEmpty() && !CTRLMAILBOX_NAMES[i].isEmpty() && ctrlMailBoxAddresses[i] != 0) {
+            found = true;
+        }
+    }
+
     preferences.end();
 
-    if (CTRLMAILBOX_KEY.isEmpty() || CTRLMAILBOX_NAME.isEmpty() || ctrlmbAddress == 0) {
-        Serial.println("CtrlMailBox credentials don't find ");
+    if (!found) {
+        Serial.println("No CtrlMailBox credentials found.");
+        return false;
+    }
+
+    return true;
+}
+
+bool isCtrlMailBoxConfigured(const String &key, const String &name, const uint16_t &address) {
+    preferences.begin("devices", true);
+    int count = preferences.getUInt("devicesCounter", 0);
+    preferences.end();
+
+    for (size_t i = 0; i < count; i++) {
+        Serial.print("Checking CMB ");
+        Serial.print(i);
+        Serial.print(": Key = ");
+        Serial.print(CTRLMAILBOX_KEYS[i]);
+        Serial.print(", Name = ");
+        Serial.print(CTRLMAILBOX_NAMES[i]);
+        Serial.print(", Addr = ");
+        Serial.println(ctrlMailBoxAddresses[i]);
+        if (CTRLMAILBOX_KEYS[i] == key && CTRLMAILBOX_NAMES[i] == name && (uint16_t)ctrlMailBoxAddresses[i] == (uint16_t)address) {
+            return true;
+        }
+    }
+    return false;
+}
+
+
+// autonomous: load the data first
+bool isCtrlMailBoxConfiguredFresh(const String &key, const String &name, const uint16_t &address) {
+    loadCtrlMailBoxCredentials(); 
+    return isCtrlMailBoxConfigured(key, name, address);
+}
+
+bool saveCtrlMailBoxCredentials(const String &newKey, const String &newName, const uint16_t &newAddress) {
+    
+    // Controllo preliminare per evitare duplicati (se implementato)
+    if (isCtrlMailBoxConfiguredFresh(newKey, newName, newAddress)) {
+        display->println("CtrlMailBox already exists:");
+        display->println("Key: " + newKey);
+        display->println("Name: " + newName);
+        display->println("Address: " + String(newAddress));
+        display->display();
+        return false;
+    }
+    preferences.begin("devices", false);
+
+    // Leggi il counter dei dispositivi salvati
+    unsigned int devicesCounter = preferences.getUInt("devicesCounter", 0);
+    
+    // Verifica limite massimo
+    if (devicesCounter >= MAX_CTRLMBOX_DEVICES) {
+        display->println("Error: Max devices reached.");
+        display->display();
+        preferences.end();
         return false;
     }
     
-    display->clearDisplay();
-    display->setCursor(0,0);
-    display->printf("MT addr:  %04X\n", localAddress);
-    display->println("MT KEY: " + MAILTON_KEY );
-    // cred load 
-    display->printf("CMB addr: %04X\n",ctrlmbAddress);
-    display->println("CMB Name: " + CTRLMAILBOX_NAME);
-    display->println("CMB KEY: " + CTRLMAILBOX_KEY);
+    // Usa l'indice corrente per salvare le informazioni nel namespace "devices"
+    unsigned int index = devicesCounter;
+    preferences.putUInt("devicesCounter", devicesCounter + 1); // Incrementa il counter
+    preferences.putString(("cmbkey" + String(index)).c_str(), newKey);
+    preferences.putString(("cmbname" + String(index)).c_str(), newName);
+    preferences.putUShort(("cmbaddr" + String(index)).c_str(), newAddress);
+    preferences.end();
+
+    Serial.print("Saved CMB ");
+    Serial.print(index);
+    Serial.print(": Key = ");
+    Serial.print(newKey);
+    Serial.print(", Name = ");
+    Serial.print(newName);
+    Serial.print(", Addr = ");
+    Serial.println(newAddress);
+    
+    display->println("Saved CtrlMailBox =^.^=:");
+    display->println("Key: " + newKey);
+    display->println("Name: " + newName);
+    display->println("Address: " + String(newAddress));
     display->display();
+    
     return true;
 }
+
 
 // save Account credentials with Preferences
 bool saveAccountCredentials(const String &newUsername, const String &newUser_password, const String &newTelegramToken) {
@@ -376,7 +475,7 @@ void handleSave(AsyncWebServerRequest *request) {
         if (saveCtrlMailBoxCredentials(CTRLMAILBOX_KEY, CTRLMAILBOX_NAME, ctrlmbAddress)) {
             request->send(200, "text", "document.getElementById('savedCredentials').style.display='block';");
         } else {
-            request->send(500, "text", "document.getElementById('errorCredentials').style.display='block';");
+            request->send(200, "text", "document.getElementById('errorCredentials').style.display='block';");
         }        
         
         // after saving the credentials, changes to ap_sta modes
@@ -499,8 +598,8 @@ void handleNewMessages(telegramMessage m) {
     display->printf("%s\n", text.c_str());
     display->display();
 
-    if(!bot_started){
         if (text == "/start") {
+            if(bot_started) return;
             if(loadAccountCredentials()){
                 bot.sendMessage(chat_id, "Hello " + from_name + "! I am TonyBot 🤖 a bot telegram on Mailton 📬🔔 (Ardunio)! \n\n When the mail arrives, PostaLino📪📣 will notify us. \nSee you when the mail arrives! 👀📨");
                 bot.sendMessage(chat_id, "🆗 Send me the Username of your Account !", "");
@@ -511,7 +610,6 @@ void handleNewMessages(telegramMessage m) {
                 return;
             }
         } 
-    }
 
     if (savedChatID != chat_id && !botConfigureAccount)
         return;
@@ -670,6 +768,8 @@ String extractValue(String message, String key) {
 
 // function to receive messages Lora
 void onLoRaReceive(int packetSize) {
+    if (loraAckPending) return;  // jump if there is already an answer in the queue
+    
     lora_priority = true;
     if (packetSize == 0) return;
 
@@ -691,12 +791,13 @@ void onLoRaReceive(int packetSize) {
         calculatedChecksum ^= incoming[i];
     }
 
+    // in case of errors in the checksum ignore the message, 
+    // because the info of the Ctrlmailbox are inside the payload and we can't send the NACK
     if (incomingLength != incoming.length() || receivedChecksum != calculatedChecksum) { 
         display->clearDisplay();
         display->setCursor(0,0);
         display->println("Error: checksum mismatch");
         loraFlagError = true;
-        digitalWrite(LED_RED, HIGH);
         return;
     }
 
@@ -706,14 +807,24 @@ void onLoRaReceive(int packetSize) {
     String receiverKey = extractValue(incoming, "MAILTON_KEY");
     String data = extractValue(incoming, "DATA");
 
-    if (senderName != CTRLMAILBOX_NAME || senderKey != CTRLMAILBOX_KEY || receiverKey != MAILTON_KEY) {
-        //display->println("Address or key mismatch detected:");
-        //display->println("Recipient: " + recipientStr + ", Local: " + localAddressStr);
-        //display->println("Sender: " + senderStr + ", CMB: " + ctrlmbAddressStr);
+    // If the device is not configured, the package received is ignored, 
+    // the NACK does not take place because otherwise it communicates with an unauthorized device
+    if(!isCtrlMailBoxConfigured(senderKey, senderName, sender) || receiverKey != MAILTON_KEY){
         display->println("Sender Name: " + senderName + ", Expected: " + CTRLMAILBOX_NAME);
         display->println("Sender Key: " + senderKey + ", Expected: " + CTRLMAILBOX_KEY);
         display->println("Receiver Key: " + receiverKey + ", Expected: " + MAILTON_KEY);
-        //display->display();
+        //pendingReplyMessage = "NACK";
+        //pendingReplyAddress = sender;
+        //loraAckPending = true; 
+        return;
+    }
+
+    lora_msg = data.c_str();
+    if (lora_msg != "Mailbox Opened" && lora_msg != "New Mail") {
+        loraFlagError = true;
+        pendingReplyMessage = "NACK";
+        pendingReplyAddress = sender;
+        loraAckPending = true;
         return;
     }
 
@@ -728,58 +839,54 @@ void onLoRaReceive(int packetSize) {
     display->printf("Message: %s\n", data.c_str());
     display->printf("RSSI: %d\n", lora->packetRssi());
     display->printf("Snr: %02f\n", lora->packetSnr());
-    
-    lora->receive();
 
-    if(!loraFlagError){    
+    if(!loraFlagError){
         lora_msg = data.c_str();
+        pendingReplyMessage = "ACK";
+    } else {
+        pendingReplyMessage = "NACK";
     }
 
-    loraFlagReceived = true;
+    pendingReplyAddress = sender;
+    loraAckPending = true;
+    lora->receive();
     lora_priority = false;
 }
+
 
 // this function uses the interrupt when it is called
 void onLoRaSend(){    
 }
 
 // send message LoRa (without interrupt)
-void sendMessageLoRa(const String &loraSendMsg) {
+void sendMessageLoRa(const String &loraSendMsg, uint16_t recipientAddress) {
     digitalWrite(LED_RED, HIGH);
-      
-    //Preferences preferences;
-    //preferences.begin("lora", true);
-    //String senderName = CTRLMAILBOX_NAME;
-    //String senderKey = MAILTON_KEY;
-    //String receiverKey = CTRLMAILBOX_KEY;
 
-    //String senderKey = preferences.getString("MAILTON_KEY", "");  
-    //preferences.end();
-
-    // Componi il messaggio nel formato: NAME=XYZ;KEY=ABC;DATA=Messaggio
-    String messageToSend = "NAME=" + CTRLMAILBOX_NAME + ";CTRLMAILBOX_KEY=" + CTRLMAILBOX_KEY + ";MAILTON_KEY=" + MAILTON_KEY + ";DATA=" + loraSendMsg;
+    CtrlMailboxInfo info = getCtrlMailboxInfoByAddress(recipientAddress);
+    if (info.name == "UNKNOWN=^.^="){
+        loraAckPending = false;
+        return;
+    }
+    String messageToSend = "NAME=" + info.name + ";CTRLMAILBOX_KEY=" + info.key + ";MAILTON_KEY=" + MAILTON_KEY + ";DATA=" + loraSendMsg;
 
     lora->beginPacket();
-
-    lora->write(ctrlmbAddress);              // add ctrlmbAddress address
-    lora->write(localAddress);             // add sender address
-    lora->write(count_sent);               // add message ID
-    lora->write(messageToSend.length());   // add payload length
+    lora->write(recipientAddress);           // recipient address
+    lora->write(localAddress);               // sender address
+    lora->write(count_sent);                 // message ID
+    lora->write(messageToSend.length());     // payload length
 
     byte checksum = 0;
     for (int i = 0; i < messageToSend.length(); i++) {
         checksum ^= messageToSend[i];
     }
-    lora->write(checksum); // add checksum
-    lora->print(messageToSend); // add payload
+    lora->write(checksum);                   // checksum
+    lora->print(messageToSend);              // message payload
 
-    lora->endPacket(true); // true=>async, non-blocking mode
+    lora->endPacket(true);
     count_sent++;
-    lora->receive();
-
     delay(100);
-    loraFlagError = false;
-
+    loraAckPending = false;
+    lora->receive();
     digitalWrite(LED_RED, LOW);
 }
 
@@ -977,6 +1084,11 @@ void setup() {
         display->printf(F("LoRa Error"));
     }
     display->display();
+    for (size_t i = 0; i < MAX_CTRLMBOX_DEVICES; i++) {
+        CTRLMAILBOX_KEYS[i] = "";
+        CTRLMAILBOX_NAMES[i] = "";
+        ctrlMailBoxAddresses[i] = 0;
+    }
     
     if(loadCtrlMailBoxCredentials()){
         Serial.println("=^.^=");
@@ -1081,24 +1193,15 @@ void loop() {
         }
     } 
 
-    // reaction to the LoRa incorrect messages received
-    if (loraFlagError){
-        loraFlagReceived = false;
+    // reaction to the LoRa messages received
+    if (loraAckPending) {
         display->display();
-        sendMessageLoRa("NACK");
-        delay(100);
         digitalWrite(LED_RED, LOW);
-    }
-    // reaction to the LoRa correct messages received
-    if(loraFlagReceived){
-        loraFlagReceived = false;
-        display->display();
-        sendMessageLoRa("ACK");
+        sendMessageLoRa(pendingReplyMessage, pendingReplyAddress);
         delay(100);
-        handlerSendMessage();
-        delay(100);
-    }  
-    
+        if (pendingReplyMessage == "ACK") 
+            handlerSendMessage();  
+    }       
 
     // detection and prediction value wiht AI model every 10s
     static unsigned long lastDetectionTime = 0;
@@ -1108,15 +1211,15 @@ void loop() {
         DetectionAndPrediction();
         display->printf("MT addr:  %04X\n", localAddress);
         display->println("MT KEY: " + MAILTON_KEY );
-        display->display();
+        //display->display();
         lastDetectionTime = currentMillis;
     }
     if (currentMillis - lastDetectionTime >= 10000) {
-        DetectionAndPrediction();
+        //DetectionAndPrediction();
         display->setCursor(0,0);
         display->printf("MT addr:  %04X\n", localAddress);
         display->println("MT KEY: " + MAILTON_KEY );
-        display->display();
+        //display->display();
         lastDetectionTime = currentMillis;
     }
     
@@ -1129,7 +1232,7 @@ void loop() {
         display->printf("CMB addr: %04X\n",ctrlmbAddress);
         display->println("CMB Name: " + CTRLMAILBOX_NAME);
         display->println("CMB KEY: " + CTRLMAILBOX_KEY);
-        display->display();
+        //display->display();
         digitalWrite(LED_GREEN, HIGH);
     }
 }
