@@ -1,0 +1,511 @@
+/**
+ * @file index_html.h
+ * @author Alessandro Ferrante (github@alessandroferrante.net)
+ * @brief MailTon
+ * @version 0.1
+ * @date 2025-04-04
+ * 
+ * @copyright Copyright (c) 2025
+ * 
+ */
+
+#ifndef INDEX_HTML_H
+#define INDEX_HTML_H
+
+const char index_html[] = R"rawliteral(
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <link rel="manifest" href="/manifest.json">
+    <title>Mailton configuration</title>
+    <style>
+        :root{
+            --font-green: #1A6167;
+            --background-neumorphism: #032D32;/* #0d3d2a*/
+            --first-gradient: #032D32;
+            --second-gradient: #033237;
+            --up-box: #032529; /*#0a3424  #08251a*/
+            --down-box: #033D42;  /*#12553a  00442f*/
+            --footer: #033D42;
+            --footer-font: #032529;
+        }
+        ::-webkit-scrollbar {
+        display: none;
+        }      
+        body {
+        padding: 0;
+        margin: 0;
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--background-neumorphism);
+            background-repeat: repeat;
+            overflow-x: hidden;
+        }
+        #home{
+            display: flex;
+            flex-direction: row;
+            gap: 50px;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            min-height: max-content;
+            height: 100vh;
+        }
+        .topnav {
+            position: absolute;
+            width: 90%;
+            margin-top: 10px;
+            height: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 35px;
+            color: #3399ff;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-radius: 33px;
+            background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
+            box-shadow:  -4px -4px 8px var(--up-box),
+                4px 4px 8px var(--down-box);
+        }
+        .topnav h1{
+            font-size: 20px;
+            margin: 0;
+            margin-left: 20px;
+        }
+        .topnav p{
+            margin: 0;
+            margin-top: 6px;
+            margin-left: 5px;
+            font-size: 11px;
+        }
+        .topnav .title{
+            margin: 0;
+            display: flex;
+            flex-direction: row;
+        }
+        .topnav .right-links {
+            display: flex;
+            align-items: center;
+            margin-right: 20px;
+        }
+        .topnav a {
+            color: rgba(240, 248, 255, 0.671);
+            text-decoration: none;
+            font-size: 16px;
+            font-weight: 800;
+            margin-left: 10px;
+        }
+        .topnav .left-links {
+            display: flex;
+            align-items: center;
+        }
+        .container {
+            display: flex;
+            flex-direction: row;
+            color: var(--font-green);
+            padding: 40px 30px;
+            height: max-content;
+            width: fit-content;
+            gap: 100px;
+            text-align: center;
+            margin-top: 80px;
+            margin-bottom: 20px;
+            border-radius: 25px;
+            transition: 0.6s ease-out;
+            background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
+            box-shadow:  -5px -5px 10px var(--up-box),
+                5px 5px 10px var(--down-box);
+        }
+        .container h1 {
+            color: #27873D;
+            font-size: 20px;
+            margin-top: 0;
+        }
+        .container label {
+            text-align: left;
+            margin-left: 25px;
+            font-size: 15px;
+            display: block;
+            font-weight: 600;
+            color: var(--font-green);
+        }
+        input[type="text"], input[type="password"] {
+            min-width: 230px;
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 2px solid var(--first-gradient);
+            border-radius: 25px;
+            box-sizing: border-box;
+            background: #062b4100;
+            color: var(--font-green);
+            width: 80%;
+            font-size: 14px;
+            font-weight: 500;
+            text-transform: capitalize;
+            outline: none;
+            padding-left: 32px;   
+            box-shadow: -6px -6px 8px var(--up-box),
+                6px 6px 8px var(--down-box),
+                inset -2px -2px 4px var(--up-box),
+                inset 2px 2px 4px var(--down-box);
+        }
+        input[type="submit"] {
+            min-width: 200px;
+            max-width: 200px;
+            padding: 10px;
+            background-color: var(--background-neumorphism);
+            box-shadow: -6px -6px 8px var(--up-box),
+                6px 6px 8px var(--down-box);
+            border: 2px solid var(--first-gradient);
+            border-radius: 25px;
+            color: #3399ff;
+            font-weight: 800;
+            font-size: 14px;
+            cursor: pointer;
+            outline: none;
+        }
+        input[type="submit"]:hover {
+            box-shadow: -6px -6px 8px var(--up-box),
+                6px 6px 8px var(--down-box),
+                inset -2px -2px 4px var(--up-box),
+                inset 2px 2px 4px var(--down-box);
+            border: 2px solid var(--first-gradient);
+        }
+        input:active, input:hover {
+            border: 2px solid var(--first-gradient);
+        }
+        input::placeholder{
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--font-green);
+            text-transform: capitalize;
+        }
+        .footer {
+            position: absolute;
+            bottom: 0px;
+            width: 100%;
+            text-align: center;
+            justify-content: center;
+            height: min-content;
+            padding: 10px 0px;
+            font-size: 10px;
+            color: var(--footer-font);
+            background-color: var(--footer);
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+        }
+        .footer a {
+            color: var(--footer-font);
+        }
+        .telegram-bot {
+            margin-top: 80px;
+            padding: 30px 20px;
+            font-weight: bold;
+            font-size: 15px;
+            text-decoration: none;
+            color: var(--font-green);
+            width: 300px;
+            border-radius: 25px;
+            margin-bottom: 100px;
+            transition: 0.6s ease-out;
+            background: linear-gradient(315deg, var(--first-gradient), var(--second-gradient));
+            box-shadow:  -5px -5px 10px var(--up-box),
+                5px 5px 10px var(--down-box);
+            text-align: center;
+        }
+        .telegram-bot a {
+            font-weight: 600 ;
+            font-size: 15px;
+            text-decoration: none;
+            color: #3399ff;
+        }
+        .telegram-bot h1 {
+            font-size: 16px;
+            color: #27873D;
+        }
+
+        @media only screen and (max-width: 1000px) {
+            #home{
+                flex-direction: column;
+            }
+            .container {
+                width: 300px;
+                margin-top: 100px;
+                margin-bottom: 0;
+                display: flex;
+                flex-direction: column;
+
+            }
+            input[type="text"], input[type="password"]{
+                width: 100%;
+            }
+            input[type="submit"] {
+                min-width: 200px;
+                max-width: 200px;
+            }
+            .footer{
+                bottom: 0;
+                position: relative;
+            }
+        }
+        #aboyModal, 
+        #savedCredentials, 
+        #ErrorCredentials {
+            display: none;
+        }
+        .modal {
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 40px;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            overflow-y: auto;
+        }
+        .modal-content {
+            color: aliceblue;
+            font-weight: 700;
+            font-size: 15px;
+            font-weight: 500;
+            background: #0c0c0c00;
+            margin: auto;
+            padding: 35px 45px;
+            width: 60%;
+            max-width: 500px;
+            height: fit-content;
+            backdrop-filter: blur(18px);
+            -webkit-backdrop-filter: blur(18x);
+            z-index: 1000;
+            background: linear-gradient(145deg,#ffffff02, #0c0c0c00);;
+            border: 1px solid #ffffff17;
+            border-style: inset;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 25px;
+            margin-top: 60px;
+            overflow-y: none;
+            margin-bottom: 50px;
+            align-items: center;
+            align-content: center;
+            justify-content: center;
+        }
+        .modal-content a {
+            font-size: 14px;
+            text-align: center;
+            display: block;
+            float: right;
+            color: red;
+            font-weight: 900;
+            text-decoration: none;
+            padding: 0px 5px;
+            border-radius: 100%;
+            border: 3px solid #ff0000;
+            background-color: rgba(240, 248, 255, 0.014);
+        }
+        .modal-content h1{
+            font-size: 24px;
+            color: #2587ef;
+            text-align: center;
+        }
+        .modal-content p{
+            text-align: left;
+        }
+        .modal-content h2{
+            font-size: 18px;
+        }
+    </style>
+</head>
+<body>
+<div class="topnav">
+    <div class="title">
+        <h1>MailTonBox</h1>
+        <p>✉️ 🔔 📬</p>
+    </div>  
+    <div class="right-links">
+        <a href="#home">Home</a>
+        <a href="javascript:void(0)" onclick="openModal()">About</a>
+        <a href="https://alessandroferrante.net/">Contact</a>
+    </div>
+</div>
+    <div id="home">
+        <div class="container">
+            <form id="dataForm">
+                <div>
+                    <h1>Set your Wi-Fi</h1>
+                    <label for="ssid">SSID*:</label><br>
+                    <input type="text" placeholder="Enter SSID your WiFi" id="ssid" name="ssid" required>
+                    <label for="password">Password*:</label><br>
+                    <input placeholder="Enter password your WiFi" type="password" id="password" name="password" required><br><br>
+                </div>
+                <input type="submit" value="Save">
+            </form>
+        </div>
+        <div class="container">
+            <form id="wifiForm">
+                <div>
+                    <h1>Set your MailTon</h1>
+                    <!--
+                    <label for="mailtonkey">MailTon KEY*:</label><br>
+                    <input placeholder="Enter your MailTon KEY" type="password" id="mailtonkey" name="mailtonkey" required><br>
+                    -->
+                    <label for="Username">Username*:</label><br>
+                    <input type="text" placeholder="Enter your Username" id="username" name="username" required>
+                    <label for="user_password">Password*:</label><br>
+                    <input placeholder="Enter your password" type="password" id="user_password" name="user_password" required><br>
+                    <label for="token">Telegram Token: <small><i>(optional)</i></small></label><br>
+                    <input type="text" placeholder="Enter your Telegram Token" id="token" name="token"><br><br>
+                </div>
+                <input type="submit" value="Save">
+         </form>
+        </div>
+        <div class="container">
+            <form id="deviceForm">
+                <div>
+                    <h1>Add your CtrlMailBox</h1>
+                    <label for="ctrlmailboxkey">CtrlMailBox KEY*:</label><br>
+                    <input placeholder="Enter your CtrlMailBox KEY" type="password" id="ctrlmailboxkey" name="ctrlmailboxkey" required><br>
+                    <label for="ctrlmailboxname">CtrlMailBox Name*:</label><br>
+                    <input type="text" placeholder="Enter your CtrlMailBox Name" id="ctrlmailboxname" name="ctrlmailboxname" required>
+                    <label for="ctrlmailboxaddress">CtrlMailBox address*:</label><br>
+                    <input type="text" id="ctrlmailboxaddress" name="ctrlmailboxaddress" placeholder="0xABCD" pattern="0x[0-9A-Fa-f]{1,4}" required><br><br>
+                </div>
+                <input type="submit" value="Save">
+         </form>
+        </div>
+        <div class="telegram-bot">
+            <h1>Connect with our Telegram Bot</h1>
+            <p>TonyBot helps you manage your mailbox, send notifications, and never miss important mail! 📬🚀 </p>
+            <a href="https://t.me/MailTonyBot" target="_blank">Click here to connect</a>
+        </div>
+        <div id="aboyModal" class="modal">
+            <div class="modal-content">
+                <a href="javascript:void(0)" onclick="openModal()">X</a>
+                    <h1>About MailTon</h1>
+                    <p>The device <b style="color: #0bd43a;">MailTon</b> It is the main component of the IoT system for your mailbox. Follow these instructions to configure it correctly:</p>
+                    <ul>
+                        <li><b style="color: #0bd43a;">WiFi connection</b>: Make sure that Mailton is connected to your WiFi network.</li>
+                        <li><b style="color: #0bd43a;">Telegram notifications</b>: Once connected, Mailton can send notifications via Telegram.</li>
+                        <li><b style="color: #0bd43a;">Start of Bot Telegram</b>: Start the Bot Telegram using the `/start` command. The bot will receive and respond to your messages, keeping an active session even in the event of restart, thanks to the rescue of the <i> `chat_id` </i> in memory.</li>
+                        <li><b style="color: #0bd43a;">Wifi credential change</b>: In the future, you can also change wifi credentials through the bot telegram.</li>
+                    </ul>
+            </div>
+        </div>
+        <div id="savedCredentials" class="modal">
+            <div class="modal-content">
+                <a href="javascript:void(0)" onclick="closeModalCredentials()">X</a>
+                <h2 style="color: #0bd43a;">Data saved correctly!</h2>
+            </div>
+        </div>
+        <div id="ErrorCredentials" class="modal">
+            <div class="modal-content">
+                <a href="javascript:void(0)" onclick="closeModalCredentials()">X</a>
+                <h2 style="color: red;">Error in saving data</h2>
+            </div>
+        </div>
+    </div>
+    <div id="=^.^=" style="display: none;"></div>
+    <footer class="footer">
+        <p>© 2025 Powered by <a href="https://alessandroferrante.net/">Alessandro Ferrante</a>. All rights reserved.</p>
+    </footer>
+    <script>
+        function openFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen();
+            } else if (elem.mozRequestFullScreen) { // Firefox
+                elem.mozRequestFullScreen();
+            } else if (elem.webkitRequestFullscreen) { // Chrome, Safari and Opera
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) { // IE/Edge
+                elem.msRequestFullscreen();
+            }
+        }
+
+        openFullscreen();  // Chiamato quando necessario
+
+        let modalActive = false;
+        function openModal() {
+            const modal = document.getElementById("aboyModal");
+            if (modalActive) {
+                modal.style.display = "none";
+                modalActive = false;
+            } else {
+                modal.style.display = "block";
+                modalActive = true;
+            }
+        }
+        document.getElementById('dataForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita il refresh della pagina
+
+            let formData = new FormData(this); 
+            
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(script => {
+                eval(script);
+            })
+            .catch(error => console.error('Errore:', error));
+        });
+        document.getElementById('wifiForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita il refresh della pagina
+
+            let formData = new FormData(this); 
+            
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(script => {
+                eval(script);
+            })
+            .catch(error => console.error('Errore:', error));
+        });
+        document.getElementById('deviceForm').addEventListener('submit', function(event) {
+            event.preventDefault(); // Evita il refresh della pagina
+
+            let formData = new FormData(this); 
+            
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.text())
+            .then(script => {
+                eval(script);
+            })
+            .catch(error => console.error('Errore:', error));
+        });
+        function closeModalCredentials() {
+            const modal1 = document.getElementById("savedCredentials");
+            const modal2 = document.getElementById("ErrorCredentials");
+            modal1.style.display = "none";
+            modal2.style.display = "none";
+        }
+    </script>
+</body>
+</html>
+)rawliteral";
+
+const char manifest_json[] = R"rawliteral( 
+    {
+        "lang": "en-us",
+        "name": "Mailton configuration",
+        "short_name": "Mailton configuration",
+        "description": "",
+        "start_url": "/",
+        "background_color": "#032D32",
+        "theme_color": "#032D32",
+        "orientation": "any",
+        "display": "standalone"
+    }
+)rawliteral";
+    
+#endif
