@@ -76,7 +76,7 @@ bool wait_servo = false;
 bool servo_open = false;
 
 unsigned long lastSendTime = 0;
-const unsigned long waitTime = 15000; // Waiting time for the answer (5 seconds)
+const unsigned long waitTime = 20000; // Waiting time for the answer (20 seconds)
 bool waitingForResponse = false;
 
 void resetDevice() {
