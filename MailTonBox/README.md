@@ -51,7 +51,7 @@ The model was trained in Python (Keras) and converted with `tinymlgen` to run on
 - Available on GitHub Pages:
   👉 [`https://alessandroferrante.github.io/IoT/MailTonBox`](https://alessandroferrante.github.io/IoT/MailTonBox)
 
-`<a href="https://alessandroferrante.github.io/IoT/MailTonBox"><img src="assets/images/icon.png" alt="MailTonBox setup" width="200"/>``</a>`
+<a href="https://alessandroferrante.github.io/IoT/MailTonBox"><img src="https://github.com/AlessandroFerrante/IoT/blob/main/MailTonBox/assets/images/icon.png" alt="" width="200"/></a>
 
 ## 📘 Documentation
 
@@ -61,7 +61,7 @@ For a complete description of architecture, operation, tests and artificial inte
 
 ## 📸 Preview
 
-![](/assets/images/imgMTCMBX.jpg)
+![](https://github.com/AlessandroFerrante/IoT/blob/main/MailTonBox/assets/images/imgMTCMBX.jpg)
 *Mailton (left) and Ctrlmailbox (right)*
 
 ## 🧰 Requirements
