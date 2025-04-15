@@ -1,5 +1,6 @@
 /**
  * @file mailTon.cpp
+ * @author Alessandro Ferrante (github@alessandroferrante.net)
  * @brief This file contains the implementation of the MailTonBox IoT system.
  * 
  * The system is designed to monitor and manage a mailbox using various sensors and communication protocols.
@@ -16,10 +17,8 @@
  * The system uses various libraries including Arduino, WiFi, AsyncTCP, ESPAsyncWebServer, DNSServer, Preferences, 
  * ArduinoJson, WiFiClientSecure, UniversalTelegramBot, Adafruit_Sensor, DHT, and EloquentTinyML.
  * 
- * @version 3.2
+ * @version 3.5
  * @date 2025-03-05
- * 
- * @note Ensure to configure the Wi-Fi and Telegram bot credentials before deploying the system.
  * 
  * @note The system receives environmental data from another device (ctrlMailBox) located in the mailbox via LoRa communication.
  * 
@@ -98,7 +97,7 @@ const char *passwordAP = "ka2smfVFka9fSsk3U"; // random
 WiFiClientSecure net_ssl;
 String username="", user_password = "";
 String telegramToken = "";
-UniversalTelegramBot bot("7411303563:AAFfc1YBJ1CwwfKZefxLoYi2wxbwMt6Dbg0", net_ssl);
+UniversalTelegramBot bot(telegramToken, net_ssl);
 int Bot_mtbs = 200;
 long Bot_lasttime;
 String chat_id;
@@ -133,9 +132,9 @@ bool deviceInfo = false;
 const size_t MAX_CTRLMBOX_DEVICES = 10;
 String CTRLMAILBOX_KEYS[MAX_CTRLMBOX_DEVICES];
 String CTRLMAILBOX_NAMES[MAX_CTRLMBOX_DEVICES];
-uint16_t ctrlMailBoxAddresses[MAX_CTRLMBOX_DEVICES];
+uint16_t CTRLMAILBOX_ADDR[MAX_CTRLMBOX_DEVICES];
 unsigned int devicesCounter = 0;
-// Variabili globali per ACK/NACK
+// variables for ACK and NACK
 String pendingReplyMessage = "";
 uint16_t pendingReplyAddress = 0;
 bool loraAckPending = false;
@@ -176,7 +175,7 @@ struct CtrlMailboxInfo {
 
 CtrlMailboxInfo getCtrlMailboxInfoByAddress(const uint16_t &address) {
     for (int i = 0; i < MAX_CTRLMBOX_DEVICES; i++) {
-        if ((uint16_t)ctrlMailBoxAddresses[i] == (uint16_t)address) {
+        if ((uint16_t)CTRLMAILBOX_ADDR[i] == (uint16_t)address) {
             return { CTRLMAILBOX_NAMES[i], CTRLMAILBOX_KEYS[i] };
         }
     }
@@ -192,7 +191,7 @@ bool loadCtrlMailBoxCredentials() {
     for (size_t i = 0; i < MAX_CTRLMBOX_DEVICES; i++) {
         CTRLMAILBOX_KEYS[i] = preferences.getString(("cmbkey" + String(i)).c_str(), "");
         CTRLMAILBOX_NAMES[i] = preferences.getString(("cmbname" + String(i)).c_str(), "");
-        ctrlMailBoxAddresses[i] = preferences.getUShort(("cmbaddr" + String(i)).c_str(), 0);
+        CTRLMAILBOX_ADDR[i] = preferences.getUShort(("cmbaddr" + String(i)).c_str(), 0);
 
         // Verifica che i dati siano stati letti correttamente
         Serial.print("Loaded CMB =^.^=");
@@ -202,9 +201,9 @@ bool loadCtrlMailBoxCredentials() {
         Serial.print(", Name = ");
         Serial.print(CTRLMAILBOX_NAMES[i]);
         Serial.print(", Addr = ");
-        Serial.println(ctrlMailBoxAddresses[i]);
+        Serial.println(CTRLMAILBOX_ADDR[i]);
 
-        if (!CTRLMAILBOX_KEYS[i].isEmpty() && !CTRLMAILBOX_NAMES[i].isEmpty() && ctrlMailBoxAddresses[i] != 0) {
+        if (!CTRLMAILBOX_KEYS[i].isEmpty() && !CTRLMAILBOX_NAMES[i].isEmpty() && CTRLMAILBOX_ADDR[i] != 0) {
             found = true;
         }
     }
@@ -232,14 +231,13 @@ bool isCtrlMailBoxConfigured(const String &key, const String &name, const uint16
         Serial.print(", Name = ");
         Serial.print(CTRLMAILBOX_NAMES[i]);
         Serial.print(", Addr = ");
-        Serial.println(ctrlMailBoxAddresses[i]);
-        if (CTRLMAILBOX_KEYS[i] == key && CTRLMAILBOX_NAMES[i] == name && (uint16_t)ctrlMailBoxAddresses[i] == (uint16_t)address) {
+        Serial.println(CTRLMAILBOX_ADDR[i]);
+        if (CTRLMAILBOX_KEYS[i] == key && CTRLMAILBOX_NAMES[i] == name && (uint16_t)CTRLMAILBOX_ADDR[i] == (uint16_t)address) {
             return true;
         }
     }
     return false;
 }
-
 
 // autonomous: load the data first
 bool isCtrlMailBoxConfiguredFresh(const String &key, const String &name, const uint16_t &address) {
@@ -296,7 +294,6 @@ bool saveCtrlMailBoxCredentials(const String &newKey, const String &newName, con
     
     return true;
 }
-
 
 // save Account credentials with Preferences
 bool saveAccountCredentials(const String &newUsername, const String &newUser_password, const String &newTelegramToken) {
@@ -373,7 +370,6 @@ bool loadChatDetails() {
     display->display();
     return true;
 }
-
 
 // save WiFi credentials with Preferences
 bool saveWiFiCredentials(const String &newSSID, const String &newPassword) {
@@ -491,7 +487,6 @@ void handleSave(AsyncWebServerRequest *request) {
     }
 }  
 
-
 void on_connected_station(WiFiEvent_t event, WiFiEventInfo_t info) {
     display->println("ConnectionAP");
     display->print("Mac address of the client: ");
@@ -512,11 +507,7 @@ void configureWiFi(wifi_mode_t mode) {
             // the DNS Server redirects all requests to WiFi.softAPIP() and activate router management 
             dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
 
-            // HTTP | configure the server routes
-            server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-                request->send(200, "image/x-icon", ""); // puoi anche mandare un'icona vuota
-              });
-              
+            // HTTP | configure the server routes             
             server.on("/", HTTP_GET, handleRoot);
             server.on("/manifest.json", HTTP_GET, handleManifestRoute);
             server.on("/", HTTP_POST, handleSave);
@@ -531,9 +522,7 @@ void configureWiFi(wifi_mode_t mode) {
             WiFi.softAP(ssidAP, passwordAP);
 
             dnsServer.start(DNS_PORT, "*", WiFi.softAPIP());
-            server.on("/favicon.ico", HTTP_GET, [](AsyncWebServerRequest *request){
-                request->send(200, "image/x-icon", ""); // puoi anche mandare un'icona vuota
-              });              
+            // HTTP | configure the server routes                         
             server.on("/", HTTP_GET, handleRoot);
             server.on("/", HTTP_POST, handleSave);
             server.on("/manifest.json", HTTP_GET, handleManifestRoute);
@@ -579,8 +568,8 @@ void configureWiFi(wifi_mode_t mode) {
  * Depending on the command received, 
  * (/start, /restart, /description, /about, /commands, /configurewifi, /ai, /allert_ai), 
  * performs different actions such as saving chat details, send reply messages,
- * configure wifi, or perform forecasts with the AI. =^.^=
- * 
+ * configure wifi, or perform forecasts with the AI. 
+ * =^.^=
  * @param m the message from the Telegram bot, 
  * of type `telegramMessage` struct, containing the message details
  */
@@ -736,7 +725,7 @@ void handlerSendMessage() {
             display->display();
         } else {
             bot.sendMessage(chat_id, "❌ Error test! 📨");
-            display->println("Send to bot: Error test!");
+            display->println("Send to bot: Error test =^.^=!");
             loraFlagError = true;
             digitalWrite(LED_RED, HIGH);
         }
@@ -774,15 +763,15 @@ void onLoRaReceive(int packetSize) {
     if (packetSize == 0) return;
 
     // read packet header bytes:
-    uint16_t recipient = lora->read();  // recipient address
-    uint16_t sender = lora->read();     // sender address
-    byte incomingMsgId = lora->read();  // incoming msg ID
-    byte incomingLength = lora->read(); // incoming msg length
+    uint16_t recipient = lora->read();    // recipient address
+    uint16_t sender = lora->read();       // sender address
+    byte incomingMsgId = lora->read();    // incoming msg ID
+    byte incomingLength = lora->read();   // incoming msg length
     byte receivedChecksum = lora->read(); // read checksum
 
     String incoming = ""; // payload of packet
 
-    while (lora->available()) {          // can't use readString() in callback, so
+    while (lora->available()) {         // can't use readString() in callback, so
         incoming += (char)lora->read(); // add bytes one by one
     }
 
@@ -847,18 +836,17 @@ void onLoRaReceive(int packetSize) {
         pendingReplyMessage = "NACK";
     }
 
+    
     pendingReplyAddress = sender;
     loraAckPending = true;
     lora->receive();
     lora_priority = false;
 }
 
-
-// this function uses the interrupt when it is called
 void onLoRaSend(){    
 }
 
-// send message LoRa (without interrupt)
+// send message LoRa 
 void sendMessageLoRa(const String &loraSendMsg, uint16_t recipientAddress) {
     digitalWrite(LED_RED, HIGH);
 
@@ -1087,8 +1075,8 @@ void setup() {
     for (size_t i = 0; i < MAX_CTRLMBOX_DEVICES; i++) {
         CTRLMAILBOX_KEYS[i] = "";
         CTRLMAILBOX_NAMES[i] = "";
-        ctrlMailBoxAddresses[i] = 0;
-    }
+        CTRLMAILBOX_ADDR[i] = 0;
+    }   
     
     if(loadCtrlMailBoxCredentials()){
         Serial.println("=^.^=");
@@ -1151,7 +1139,7 @@ void loop() {
         digitalWrite(LED_GREEN, LOW);
 
         WiFi.begin(ssid, password);
-        delay(1000);
+        delay(500);
         display->clearDisplay();
         display->setCursor(0,0);
         display->println(F("Connecting to WiFi..."));
@@ -1169,6 +1157,7 @@ void loop() {
         display->println(F("Connected to WiFi"));
         display->println("SSID: " + ssid);
         display->display();
+        delay(100);
         connected = true;
         
         if(!bot_active && loadChatDetails() && loadAccountCredentials()){
@@ -1211,15 +1200,15 @@ void loop() {
         DetectionAndPrediction();
         display->printf("MT addr:  %04X\n", localAddress);
         display->println("MT KEY: " + MAILTON_KEY );
-        //display->display();
+        display->display();
         lastDetectionTime = currentMillis;
     }
     if (currentMillis - lastDetectionTime >= 10000) {
-        //DetectionAndPrediction();
+        DetectionAndPrediction();
         display->setCursor(0,0);
         display->printf("MT addr:  %04X\n", localAddress);
         display->println("MT KEY: " + MAILTON_KEY );
-        //display->display();
+        display->display();
         lastDetectionTime = currentMillis;
     }
     
@@ -1232,7 +1221,7 @@ void loop() {
         display->printf("CMB addr: %04X\n",ctrlmbAddress);
         display->println("CMB Name: " + CTRLMAILBOX_NAME);
         display->println("CMB KEY: " + CTRLMAILBOX_KEY);
-        //display->display();
+        display->display();
         digitalWrite(LED_GREEN, HIGH);
     }
 }
