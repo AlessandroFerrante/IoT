@@ -1,3 +1,18 @@
+/**
+ * @file model.h
+ * @author Alessandro Ferrante (github@alessandroferrante.net)
+ * @brief This file contains a pre-trained model.
+ * The model is designed to:
+ * 1. Predict carbon monoxide (CO) ppm values ​​using temperature and humidity as features.
+ * 2. Perform classification of ppm, temperature and humidity values.
+ *
+ * The model is serialized in binary format and stored in the `model_data` array.
+ * The length of the model is specified by the `model_data_len` variable.
+ * @version 0.1
+ * 
+ * @copyright Copyright (c) 2025
+ * 
+ */
 
 #ifdef __has_attribute
 #define HAVE_ATTRIBUTE(x) __has_attribute(x)
