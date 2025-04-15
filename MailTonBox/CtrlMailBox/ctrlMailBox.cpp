@@ -1,7 +1,23 @@
 /**
  * @file ctrlMailBox.cpp
- * @author Alessandro Ferrante (github@alessandroferrante)
- * @brief 
+ * @author Alessandro Ferrante (github@alessandroferrante.net)
+ * @brief Firmware for managing a smart mailbox with LoRa communication, WiFi configuration, and sensor integration.
+ * 
+ * This firmware is designed to control a smart mailbox system that integrates multiple functionalities:
+ * - LoRa communication for long-range data transmission.
+ * - WiFi configuration for local network setup and web-based management.
+ * - Ultrasonic sensor for detecting the presence of mail.
+ * - Rotary encoder for manual control of the mailbox state.
+ * - Servo motor for automated opening and closing of the mailbox.
+ * - OLED display for real-time status updates.
+ * 
+ * The system supports saving and loading device credentials using non-volatile storage (Preferences),
+ * and provides a web interface for configuration. It also includes mechanisms for message acknowledgment
+ * and retransmission in case of communication failures.
+ * 
+ * @note
+ * - Ensure proper wiring of all components before deploying the firmware.
+ * - The firmware is designed for IoTBoard hardware and may require modifications for other platforms.
  * @version 3.0
  * @date 2025-03-06
  * 
@@ -310,6 +326,7 @@ void sendMessageLoRa() {
     lora->write(count_sent);               // add message ID
     lora->write(messageToSend.length());   // add payload length
 
+    // XOR 
     byte checksum = 0;
     for (int i = 0; i < messageToSend.length(); i++) {
         checksum ^= messageToSend[i];
@@ -324,13 +341,12 @@ void sendMessageLoRa() {
     lora->receive();
 
     loraFlagReceived = false;
-    waitingForResponse = true; // Set the waiting flag
-    lastSendTime = millis(); // Record the sending time
+    waitingForResponse = true; // set the waiting flag
+    lastSendTime = millis(); // record the sending time
 
     digitalWrite(LED_GREEN, LOW);
     lora_priority = false;
 }
-
 
 void onBtn1Released(uint8_t pinBtn){
     lora_msg = "AAAAAAAA";
@@ -410,31 +426,6 @@ void loop() {
     buttons->update();
     dnsServer.processNextRequest();
     
-    // | ******************** Restart LoRa *************************
-    /*if(!wait_rotary && !wait_servo && !servo_open && !mailbox_open){
-        lora_priority = true;
-        if(!lora->isConnected()){
-            digitalWrite(LED_RED, HIGH);
-            display->printf("LoRa Error");
-            
-            // !!!!! Implies the reset esp32
-            if (IoTBoard::init_lora()) {
-                lora->onReceive(onLoRaReceive);
-                lora->onTxDone(onLoRaSend);
-                lora->receive();
-                display->println("LoRa enabled");
-            } else {
-                digitalWrite(LED_RED, HIGH);
-                display->printf("LoRa Error");
-            }
-            
-        } else if(lora->isConnected()){
-            digitalWrite(LED_RED, LOW);
-        }
-        displayNeedUpdate = true;
-        lora_priority = false;
-    }*/
-    
     delay(1);
     
     if(displayNeedUpdate){
@@ -471,7 +462,7 @@ void loop() {
     static bool message_sent = false;
     
     if (!lora_priority && mailbox_open && servo_open && !wait_rotary && !wait_servo && !mail_detected && !message_sent) {
-        // Send the message only if the mailbox is open and the mail is taken (or the distance is the initial one)
+        // send the message only if the mailbox is open and the mail is taken (or the distance is the initial one)
         lora_msg = "Mailbox Opened";
         noInterrupts();
         sendMessageLoRa();
@@ -490,7 +481,7 @@ void loop() {
         sendMessageLoRa();
     }
 
-    // Timer to automatically close the mailbox if left open for too long
+    // timer to automatically close the mailbox if left open for too long
     static unsigned long mailboxOpenTime = 0;
     const unsigned long maxOpenDuration = 60000; // 60 seconds
 
@@ -526,7 +517,6 @@ void loop() {
         display->display();
         delay(1000);
     }
-
     
     /*if (rotationCount >= CLOSE_THRESHOLD-5) {
         writeServo(90);
