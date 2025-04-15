@@ -1,4 +1,5 @@
 # 📬 MaiTonBox 🔔– Smart Mailbox IoT System
+
 [![Made with Arduino](https://img.shields.io/badge/Made%20with-Arduino-blue.svg)](https://www.arduino.cc/)
 [![ESP32](https://img.shields.io/badge/Board-ESP32-green.svg)](https://www.espressif.com/en/products/socs/esp32)
 [![Platformio](https://badges.registry.platformio.org/packages/ESP32Async/library/AsyncTCP.svg)](https://platformio.org/)
@@ -25,7 +26,7 @@ MailTonBox is a distributed IoT system based on ESP32 to digitize traditional ma
 
 ## 📦 System Architecture
 
-- **MailTon**: Central node connected to the Internet via Wi-Fi, receives messages from remote nodes and manages communication with Telegram and the AI ​​model.
+- **MailTon**: Central node connected to the Internet via Wi-Fi, receives messages from remote nodes and manages communication with Telegram and the AI model.
 - **CtrlMailBox**: Remote node inside the mailbox, detects the presence of letters and sends reports via LoRa.
 - **TonyBot**: Integrated Telegram bot to receive notifications and configure the system remotely.
 - **Web App**: PWA interface for configuring devices in Access Point mode.
@@ -41,22 +42,25 @@ The system implements a **multi-task** model that simultaneously executes:
 The model was trained in Python (Keras) and converted with `tinymlgen` to run on ESP32.
 
 ## ESP32 Firmware
+
 - [`MailTon/`](https://github.com/AlessandroFerrante/IoT/tree/main/MailTonBox/MailTon): code for the Central Unit
 - [`CtrlMailBox/`](https://github.com/AlessandroFerrante/IoT/tree/main/MailTonBox/CtrlMailBox): code for remote knots
 
 ## Web App
-- Available on GitHub Pages: 
+
+- Available on GitHub Pages:
   👉 [`https://alessandroferrante.github.io/IoT/MailTonBox`](https://alessandroferrante.github.io/IoT/MailTonBox)
 
-<a href="https://alessandroferrante.github.io/IoT/MailTonBox"><img src="assets/images/icon.png" alt="MailTonBox setup" width="200"/></a>
+`<a href="https://alessandroferrante.github.io/IoT/MailTonBox"><img src="assets/images/icon.png" alt="MailTonBox setup" width="200"/>``</a>`
 
 ## 📘 Documentation
 
 For a complete description of architecture, operation, tests and artificial intelligence embedded, consult the complete technical report:
 
-[`📖 MailTonBox.pdf`](/assets/MailTonBox.pdf)
+[`📖 MailTonBox.pdf`](https://github.com/AlessandroFerrante/IoT/blob/main/MailTonBox/MailTonBox.pdf)
 
 ## 📸 Preview
+
 ![](/assets/images/imgMTCMBX.jpg)
 *Mailton (left) and Ctrlmailbox (right)*
 
@@ -65,27 +69,26 @@ For a complete description of architecture, operation, tests and artificial inte
 - Visual Studio Code with the [PlatformIO](https://platformio.org/);
 - [`iot_board`](https://github.com/UniCT-Internet-of-Things/IoTBoard-Library) library provided by the course to implement the protocols using the components with Arduino Nano Esp32;
 
-### 🛠 Libraries 
+### 🛠 Libraries
 
-| Libreria| Descrizione| Link |
-|--------------|--------------|------|
-| `Arduino.h`                 | Libreria base di Arduino                                                                    | 🔗 [`Arduino Core`](https://www.arduino.cc/en/reference) |
-| `WiFi.h`                    | Gestione della connessione Wi-Fi per ESP32                                                  | 🔗 [`WiFi`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/WiFi) |
-| `iot_board.h`               | Libreria specifica per la board utilizzata (IoTBoard UniCT)                                 | 🔗 [`IoTBoard Library`](https://github.com/UniCT-Internet-of-Things/IoTBoard-Library) |
-| `AsyncTCP.h`                | TCP asincrono per ESP32                                                                     | 🔗 [`AsyncTCP`](https://github.com/ESP32Async/AsyncTCP/releases) |
-| `ESPAsyncWebServer.h`       | Web server asincrono per ESP32                                                              | 🔗 [`ESPAsyncWebServer`](https://github.com/ESP32Async/ESPAsyncWebServer) |
-| `DNSServer.h`               | Server DNS locale per captive portal                                                        | 🔗 [`DNSServer`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/DNSServer) |
-| `Preferences.h`             | Gestione della memoria non volatile (NVS)                                                   | 🔗 [`Preferences`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/Preferences) |
-| `WiFiClientSecure.h`        | Connessioni HTTPS con certificati                                                           | 🔗 [`WiFiClientSecure`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/NetworkClientSecure) |
-| `UniversalTelegramBot.h`    | Bot Telegram per ESP8266/ESP32                                                              | 🔗 [`UniversalTelegramBot`](https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot) |
-| `ArduinoJson.h`             | Parsing e generazione di JSON                                                               | 🔗 [`ArduinoJson`](https://registry.platformio.org/libraries/bblanchon/ArduinoJson) |
-| `DHT.h`                     | Gestione sensori DHT11/DHT22                                                                | 🔗 [`DHT Sensor Library`](https://github.com/adafruit/Adafruit_Sensor) |
-| `EloquentTinyML.h`          | Esecuzione modelli TinyML su microcontrollori                                               | 🔗 [`EloquentTinyML`](https://github.com/eloquentarduino/EloquentTinyML) |
+| Libreria                   | Descrizione                                                 | Link                                                                                                                                          |
+| -------------------------- | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Arduino.h`              | Libreria base di Arduino                                    | 🔗[`Arduino Core`](https://www.arduino.cc/en/reference)                                                                                        |
+| `WiFi.h`                 | Gestione della connessione Wi-Fi per ESP32                  | 🔗[`WiFi`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/WiFi)                            |
+| `iot_board.h`            | Libreria specifica per la board utilizzata (IoTBoard UniCT) | 🔗[`IoTBoard Library`](https://github.com/UniCT-Internet-of-Things/IoTBoard-Library)                                                           |
+| `AsyncTCP.h`             | TCP asincrono per ESP32                                     | 🔗[`AsyncTCP`](https://github.com/ESP32Async/AsyncTCP/releases)                                                                                |
+| `ESPAsyncWebServer.h`    | Web server asincrono per ESP32                              | 🔗[`ESPAsyncWebServer`](https://github.com/ESP32Async/ESPAsyncWebServer)                                                                       |
+| `DNSServer.h`            | Server DNS locale per captive portal                        | 🔗[`DNSServer`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/DNSServer)                  |
+| `Preferences.h`          | Gestione della memoria non volatile (NVS)                   | 🔗[`Preferences`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/Preferences)              |
+| `WiFiClientSecure.h`     | Connessioni HTTPS con certificati                           | 🔗[`WiFiClientSecure`](https://github.com/espressif/arduino-esp32/tree/3bfa3e0a56c80305eec90f10e8318af8d8091bab/libraries/NetworkClientSecure) |
+| `UniversalTelegramBot.h` | Bot Telegram per ESP8266/ESP32                              | 🔗[`UniversalTelegramBot`](https://github.com/witnessmenow/Universal-Arduino-Telegram-Bot)                                                     |
+| `ArduinoJson.h`          | Parsing e generazione di JSON                               | 🔗[`ArduinoJson`](https://registry.platformio.org/libraries/bblanchon/ArduinoJson)                                                             |
+| `DHT.h`                  | Gestione sensori DHT11/DHT22                                | 🔗[`DHT Sensor Library`](https://github.com/adafruit/Adafruit_Sensor)                                                                          |
+| `EloquentTinyML.h`       | Esecuzione modelli TinyML su microcontrollori               | 🔗[`EloquentTinyML`](https://github.com/eloquentarduino/EloquentTinyML)                                                                        |
 
 ## 📋 License
 
 This repository is licensed under the MIT license. See the `LICENSE` file for more details.
-
 
 ## 👨‍💻 Author
 
