@@ -4,8 +4,8 @@
 [![Made with Arduino](https://img.shields.io/badge/Made%20with-Arduino-blue.svg)](https://www.arduino.cc/)
 [![ESP32](https://img.shields.io/badge/Board-ESP32-green.svg)](https://www.espressif.com/en/products/socs/esp32)
 [![Platformio](https://badges.registry.platformio.org/packages/ESP32Async/library/AsyncTCP.svg)](https://platformio.org/)
-[![Comm-LoRa](https://img.shields.io/badge/Comm-LoRa-orange.svg)](https://lora-alliance.org/)
-[![Comm-WiFi](https://img.shields.io/badge/Comm-WiFi-lightblue.svg)](https://lora-alliance.org/)
+[![Comm-LoRa](https://img.shields.io/badge/Comm-LoRa-orange.svg)](https://en.wikipedia.org/wiki/LoRa)
+[![Comm-WiFi](https://img.shields.io/badge/Comm-WiFi-lightblue.svg)]()
 [![Telegram Bot](https://img.shields.io/badge/Notify-Telegram-blue)](https://core.telegram.org/bots)
 
 [![Trained with Keras](https://img.shields.io/badge/Framework-Keras-red)](https://keras.io/)
